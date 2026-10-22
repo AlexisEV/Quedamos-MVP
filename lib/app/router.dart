@@ -5,12 +5,16 @@ import '../features/auth/presentation/sesion_view_model.dart';
 import '../features/lugares/presentation/explorar_screen.dart';
 import '../features/notificaciones/presentation/notificaciones_screen.dart';
 import '../features/perfil/presentation/perfil_screen.dart';
+import '../features/salidas/presentation/crear_plan_screen.dart';
+import '../features/salidas/presentation/detalle_plan_screen.dart';
 import '../features/salidas/presentation/mis_salidas_screen.dart';
 import 'shell_screen.dart';
 
 abstract final class Rutas {
   static const acceso = '/acceso';
   static const salidas = '/salidas';
+  static const crearPlan = '/salidas/crear';
+  static String detallePlan(String planId) => '/salidas/$planId';
   static const explorar = '/explorar';
   static const notificaciones = '/notificaciones';
   static const perfil = '/perfil';
@@ -41,6 +45,19 @@ GoRouter crearRouter(SesionViewModel sesion) {
               GoRoute(
                 path: Rutas.salidas,
                 builder: (context, state) => const MisSalidasScreen(),
+                // crear va antes de :planId para que no se lea como un id
+                routes: [
+                  GoRoute(
+                    path: 'crear',
+                    builder: (context, state) => const CrearPlanScreen(),
+                  ),
+                  GoRoute(
+                    path: ':planId',
+                    builder: (context, state) => DetallePlanScreen(
+                      planId: state.pathParameters['planId']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

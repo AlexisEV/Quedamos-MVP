@@ -4,6 +4,7 @@ import 'app/app.dart';
 import 'core/services/supabase_service.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/perfil/data/perfil_repository.dart';
+import 'features/salidas/data/salidas_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +14,7 @@ Future<void> main() async {
     QuedamosApp(
       authRepository: AuthRepository(cliente),
       perfilRepository: PerfilRepository(cliente),
+      salidasRepository: SalidasRepository(cliente),
     ),
   );
 }

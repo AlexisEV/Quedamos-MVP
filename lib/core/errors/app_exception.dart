@@ -25,7 +25,24 @@ abstract final class MensajesError {
   static const sinSesion = 'Tu sesión terminó. Vuelve a iniciar sesión.';
   static const nombreInvalido =
       'El nombre visible debe tener entre 1 y 40 caracteres.';
+  static const noAutorizado = 'No tienes permiso para esta acción.';
+  static const nombrePlanRequerido = 'Ingresa el nombre del plan.';
+  static const presupuestoInvalido = 'Ingresa un presupuesto válido.';
+  static const limiteFueraDeRango = 'Algún límite está fuera de su rango.';
+  static const seleccionesMayoresQueCandidatos =
+      'Las selecciones no pueden superar a los candidatos.';
 }
+
+// codigos que lanzan las rpc con raise exception; ver 04_DATABASE_SCHEMA.md seccion 6
+const _mensajesRpc = {
+  'no_autenticado': MensajesError.sinSesion,
+  'no_autorizado': MensajesError.noAutorizado,
+  'nombre_requerido': MensajesError.nombrePlanRequerido,
+  'presupuesto_invalido': MensajesError.presupuestoInvalido,
+  'limite_fuera_de_rango': MensajesError.limiteFueraDeRango,
+  'selecciones_mayores_que_candidatos':
+      MensajesError.seleccionesMayoresQueCandidatos,
+};
 
 // traduce excepciones de supabase a mensajes en espanol
 AppException traducirError(Object error) {
@@ -63,6 +80,11 @@ AppException _traducirAuth(AuthException error) {
 
 AppException _traducirPostgrest(PostgrestException error) {
   switch (error.code) {
+    // raise exception de una rpc: el mensaje es el codigo legible
+    case 'P0001':
+      return AppException(
+        _mensajesRpc[error.message] ?? MensajesError.generico,
+      );
     // violacion de check: nombre_visible fuera de rango
     case '23514':
       return const AppException(MensajesError.nombreInvalido);

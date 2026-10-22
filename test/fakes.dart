@@ -4,6 +4,8 @@ import 'package:app/core/errors/app_exception.dart';
 import 'package:app/features/auth/data/auth_repository.dart';
 import 'package:app/features/perfil/data/perfil_model.dart';
 import 'package:app/features/perfil/data/perfil_repository.dart';
+import 'package:app/features/salidas/data/plan_model.dart';
+import 'package:app/features/salidas/data/salidas_repository.dart';
 
 // repositorio de auth en memoria; error define la falla de la siguiente llamada
 class FakeAuthRepository implements AuthRepository {
@@ -60,5 +62,74 @@ class FakePerfilRepository implements PerfilRepository {
     if (falla != null) throw falla;
     perfil = perfil.copyWith(nombreVisible: nombreVisible.trim());
     return perfil;
+  }
+}
+
+PlanModel planDePrueba({
+  String id = 'p1',
+  String nombre = 'Sábado en Yanahuara',
+  EstadoPlan estado = EstadoPlan.recibiendoPropuestas,
+  DateTime? createdAt,
+}) {
+  return PlanModel(
+    id: id,
+    nombre: nombre,
+    estado: estado,
+    presupuestoSoles: 70,
+    maxPropuestasPorPersona: 3,
+    maxCandidatos: 6,
+    maxSelecciones: 3,
+    maxActividades: 3,
+    codigoInvitacion: 'AQP48X',
+    creadoPor: 'u1',
+    createdAt: createdAt ?? DateTime.utc(2026, 10, 22),
+  );
+}
+
+// repositorio de salidas en memoria; crearPlan es idempotente por id como la rpc
+class FakeSalidasRepository implements SalidasRepository {
+  final salidas = <SalidaModel>[];
+  final creados = <NuevoPlan>[];
+  AppException? error;
+  final _cambios = StreamController<void>.broadcast();
+
+  @override
+  Stream<void> get cambios => _cambios.stream;
+
+  @override
+  Future<List<SalidaModel>> obtenerMisSalidas() async {
+    final falla = error;
+    if (falla != null) throw falla;
+    return List.of(salidas);
+  }
+
+  @override
+  Future<SalidaModel?> obtenerSalida(String planId) async {
+    final falla = error;
+    if (falla != null) throw falla;
+    for (final salida in salidas) {
+      if (salida.plan.id == planId) return salida;
+    }
+    return null;
+  }
+
+  @override
+  Future<PlanModel> crearPlan(NuevoPlan nuevo) async {
+    creados.add(nuevo);
+    final falla = error;
+    if (falla != null) throw falla;
+    final existente = await obtenerSalida(nuevo.id);
+    if (existente != null) return existente.plan;
+    final plan = planDePrueba(id: nuevo.id, nombre: nuevo.nombre.trim());
+    salidas.add(
+      SalidaModel(
+        plan: plan,
+        miRol: RolPlan.administrador,
+        esCreador: true,
+        totalParticipantes: 1,
+      ),
+    );
+    _cambios.add(null);
+    return plan;
   }
 }

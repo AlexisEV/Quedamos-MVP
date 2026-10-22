@@ -63,6 +63,7 @@ class _PerfilVista extends StatelessWidget {
         child: RefreshIndicator(
           onRefresh: vm.cargar,
           child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(AppSpacing.margin),
             children: [
               Text(

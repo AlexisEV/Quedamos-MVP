@@ -9,6 +9,8 @@ import 'package:app/features/lugares/presentation/explorar_screen.dart';
 import 'package:app/features/perfil/data/perfil_model.dart';
 import 'package:app/features/perfil/data/perfil_repository.dart';
 import 'package:app/features/perfil/presentation/perfil_screen.dart';
+import 'package:app/features/salidas/data/salidas_repository.dart';
+import 'package:app/features/salidas/presentation/detalle_plan_screen.dart';
 import 'package:app/features/salidas/presentation/mis_salidas_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,6 +23,7 @@ Future<StreamController<bool>> montarApp(
   WidgetTester tester, {
   required bool haySesion,
   FakeAuthRepository? auth,
+  FakeSalidasRepository? salidas,
 }) async {
   final cambios = StreamController<bool>();
   final sesion = SesionViewModel(
@@ -45,6 +48,9 @@ Future<StreamController<bool>> montarApp(
               correo: 'mateo@correo.com',
             ),
           ),
+        ),
+        Provider<SalidasRepository>.value(
+          value: salidas ?? FakeSalidasRepository(),
         ),
       ],
       child: MaterialApp.router(theme: AppTheme.claro, routerConfig: router),
@@ -121,5 +127,35 @@ void main() {
     expect(find.text('Mateo'), findsOneWidget);
     expect(find.text('mateo@correo.com'), findsOneWidget);
     expect(find.text('Cerrar sesión'), findsOneWidget);
+  });
+
+  testWidgets('crear plan valida, crea y lleva al detalle con el codigo', (
+    tester,
+  ) async {
+    final salidas = FakeSalidasRepository();
+    await montarApp(tester, haySesion: true, salidas: salidas);
+    expect(find.text('Aún no tienes salidas'), findsOneWidget);
+
+    await tester.tap(find.text('Crear nueva salida'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Crear plan').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Ingresa el nombre del plan.'), findsOneWidget);
+    expect(find.text('Ingresa el presupuesto.'), findsOneWidget);
+    expect(salidas.creados, isEmpty);
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Sábado');
+    await tester.enterText(find.byType(TextFormField).at(1), '70');
+    await tester.tap(find.text('Crear plan').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DetallePlanScreen), findsOneWidget);
+    expect(find.text('AQP48X'), findsOneWidget);
+    expect(find.text('Copiar código'), findsOneWidget);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Planes activos'), findsOneWidget);
+    expect(find.text('Sábado'), findsOneWidget);
   });
 }
