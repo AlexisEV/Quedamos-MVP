@@ -62,13 +62,16 @@ abstract final class AppTheme {
       displayColor: AppColors.textPrimary,
     ),
     scaffoldBackgroundColor: AppColors.surface,
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: AppColors.surface,
       foregroundColor: AppColors.textPrimary,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: AppTextStyles.headlineMd,
+      // un titleTextStyle del tema no hereda foregroundColor; el color va explicito
+      titleTextStyle: AppTextStyles.headlineMd.copyWith(
+        color: AppColors.textPrimary,
+      ),
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: AppColors.surfaceWhite,
