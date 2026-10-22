@@ -4,13 +4,19 @@ import 'package:provider/provider.dart';
 
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/presentation/sesion_view_model.dart';
+import '../features/perfil/data/perfil_repository.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 
 class QuedamosApp extends StatefulWidget {
-  const QuedamosApp({super.key, required this.authRepository});
+  const QuedamosApp({
+    super.key,
+    required this.authRepository,
+    required this.perfilRepository,
+  });
 
   final AuthRepository authRepository;
+  final PerfilRepository perfilRepository;
 
   @override
   State<QuedamosApp> createState() => _QuedamosAppState();
@@ -37,6 +43,7 @@ class _QuedamosAppState extends State<QuedamosApp> {
     return MultiProvider(
       providers: [
         Provider<AuthRepository>.value(value: widget.authRepository),
+        Provider<PerfilRepository>.value(value: widget.perfilRepository),
         ChangeNotifierProvider<SesionViewModel>.value(value: _sesion),
       ],
       child: MaterialApp.router(
