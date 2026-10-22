@@ -91,3 +91,8 @@ desktop.ini
 # node (edge functions / herramientas)
 # ---------------------------------------------------------------
 node_modules/
+
+# ---------------------------------------------------------------
+# referencias de diseno locales (mockups de figma, no se versionan)
+# ---------------------------------------------------------------
+/design_ref/
