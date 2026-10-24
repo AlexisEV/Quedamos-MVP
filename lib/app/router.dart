@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/acceso_screen.dart';
 import '../features/auth/presentation/sesion_view_model.dart';
 import '../features/lugares/presentation/explorar_screen.dart';
+import '../features/lugares/presentation/ficha_lugar_screen.dart';
 import '../features/notificaciones/presentation/notificaciones_screen.dart';
 import '../features/perfil/presentation/perfil_screen.dart';
 import '../features/salidas/presentation/crear_plan_screen.dart';
@@ -16,6 +17,7 @@ abstract final class Rutas {
   static const crearPlan = '/salidas/crear';
   static String detallePlan(String planId) => '/salidas/$planId';
   static const explorar = '/explorar';
+  static String fichaLugar(String lugarId) => '/explorar/$lugarId';
   static const notificaciones = '/notificaciones';
   static const perfil = '/perfil';
 }
@@ -66,6 +68,14 @@ GoRouter crearRouter(SesionViewModel sesion) {
               GoRoute(
                 path: Rutas.explorar,
                 builder: (context, state) => const ExplorarScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':lugarId',
+                    builder: (context, state) => FichaLugarScreen(
+                      lugarId: state.pathParameters['lugarId']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

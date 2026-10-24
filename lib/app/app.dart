@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/presentation/sesion_view_model.dart';
+import '../features/lugares/data/lugares_repository.dart';
 import '../features/perfil/data/perfil_repository.dart';
 import '../features/salidas/data/salidas_repository.dart';
 import 'router.dart';
@@ -15,11 +16,13 @@ class QuedamosApp extends StatefulWidget {
     required this.authRepository,
     required this.perfilRepository,
     required this.salidasRepository,
+    required this.lugaresRepository,
   });
 
   final AuthRepository authRepository;
   final PerfilRepository perfilRepository;
   final SalidasRepository salidasRepository;
+  final LugaresRepository lugaresRepository;
 
   @override
   State<QuedamosApp> createState() => _QuedamosAppState();
@@ -48,6 +51,7 @@ class _QuedamosAppState extends State<QuedamosApp> {
         Provider<AuthRepository>.value(value: widget.authRepository),
         Provider<PerfilRepository>.value(value: widget.perfilRepository),
         Provider<SalidasRepository>.value(value: widget.salidasRepository),
+        Provider<LugaresRepository>.value(value: widget.lugaresRepository),
         ChangeNotifierProvider<SesionViewModel>.value(value: _sesion),
       ],
       child: MaterialApp.router(

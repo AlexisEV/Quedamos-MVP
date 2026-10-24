@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'app/app.dart';
 import 'core/services/supabase_service.dart';
 import 'features/auth/data/auth_repository.dart';
+import 'features/lugares/data/lugares_repository.dart';
 import 'features/perfil/data/perfil_repository.dart';
 import 'features/salidas/data/salidas_repository.dart';
 
@@ -15,6 +16,7 @@ Future<void> main() async {
       authRepository: AuthRepository(cliente),
       perfilRepository: PerfilRepository(cliente),
       salidasRepository: SalidasRepository(cliente),
+      lugaresRepository: LugaresRepository(cliente),
     ),
   );
 }

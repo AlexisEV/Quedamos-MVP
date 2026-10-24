@@ -5,7 +5,10 @@ import 'package:app/app/theme/app_theme.dart';
 import 'package:app/features/auth/data/auth_repository.dart';
 import 'package:app/features/auth/presentation/acceso_screen.dart';
 import 'package:app/features/auth/presentation/sesion_view_model.dart';
+import 'package:app/features/lugares/data/lugar_model.dart';
+import 'package:app/features/lugares/data/lugares_repository.dart';
 import 'package:app/features/lugares/presentation/explorar_screen.dart';
+import 'package:app/features/lugares/presentation/ficha_lugar_screen.dart';
 import 'package:app/features/perfil/data/perfil_model.dart';
 import 'package:app/features/perfil/data/perfil_repository.dart';
 import 'package:app/features/perfil/presentation/perfil_screen.dart';
@@ -24,6 +27,7 @@ Future<StreamController<bool>> montarApp(
   required bool haySesion,
   FakeAuthRepository? auth,
   FakeSalidasRepository? salidas,
+  FakeLugaresRepository? lugares,
 }) async {
   final cambios = StreamController<bool>();
   final sesion = SesionViewModel(
@@ -51,6 +55,9 @@ Future<StreamController<bool>> montarApp(
         ),
         Provider<SalidasRepository>.value(
           value: salidas ?? FakeSalidasRepository(),
+        ),
+        Provider<LugaresRepository>.value(
+          value: lugares ?? FakeLugaresRepository(),
         ),
       ],
       child: MaterialApp.router(theme: AppTheme.claro, routerConfig: router),
@@ -157,5 +164,55 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Planes activos'), findsOneWidget);
     expect(find.text('Sábado'), findsOneWidget);
+  });
+
+  testWidgets('explorar sin lugares muestra el estado vacio', (tester) async {
+    await montarApp(tester, haySesion: true);
+
+    await tester.tap(find.byIcon(Icons.explore_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('Aún no hay lugares en el catálogo'), findsOneWidget);
+  });
+
+  testWidgets('explorar abre la ficha y marca los datos desconocidos', (
+    tester,
+  ) async {
+    final lugares = FakeLugaresRepository([
+      lugarDePrueba(
+        id: 'l1',
+        nombre: 'Picantería de prueba',
+        precioEstimadoPen: 38,
+        precioNota: 'plato de fondo',
+      ),
+      lugarDePrueba(
+        id: 'l2',
+        nombre: 'Bar de prueba',
+        categoria: CategoriaLugar.bares,
+      ),
+    ]);
+    await montarApp(tester, haySesion: true, lugares: lugares);
+
+    await tester.tap(find.byIcon(Icons.explore_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('S/ 38.00 / pers. (estimado)'), findsOneWidget);
+    expect(find.text('Precio desconocido'), findsOneWidget);
+    expect(find.text('Horario desconocido'), findsNWidgets(2));
+
+    await tester.tap(find.text('Bar de prueba'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FichaLugarScreen), findsOneWidget);
+    expect(find.text('Desconocido'), findsNWidgets(3));
+    expect(find.text('Cercado, Arequipa'), findsNothing);
+    expect(find.text('Yanahuara, Arequipa'), findsOneWidget);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Picantería de prueba'));
+    await tester.pumpAndSettle();
+    expect(find.text('S/ 38.00'), findsOneWidget);
+    expect(
+      find.text('plato de fondo\nPrecio orientativo, puede variar.'),
+      findsOneWidget,
+    );
   });
 }

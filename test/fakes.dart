@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:app/core/errors/app_exception.dart';
 import 'package:app/features/auth/data/auth_repository.dart';
+import 'package:app/features/lugares/data/lugar_model.dart';
+import 'package:app/features/lugares/data/lugares_repository.dart';
 import 'package:app/features/perfil/data/perfil_model.dart';
 import 'package:app/features/perfil/data/perfil_repository.dart';
 import 'package:app/features/salidas/data/participante_model.dart';
@@ -214,5 +216,52 @@ ParticipanteModel participanteDePrueba(
     rol: rol,
     esCreador: esCreador,
     unidoEn: DateTime.utc(2026, 10, 22, 12, minuto),
+  );
+}
+
+// catalogo en memoria; solo contiene lugares publicados, como los devuelve rls
+class FakeLugaresRepository implements LugaresRepository {
+  FakeLugaresRepository([List<LugarModel>? lugares]) : lugares = lugares ?? [];
+
+  final List<LugarModel> lugares;
+  AppException? error;
+
+  @override
+  Future<List<LugarModel>> obtenerLugares() async {
+    final falla = error;
+    if (falla != null) throw falla;
+    return List.of(lugares)..sort((a, b) => a.nombre.compareTo(b.nombre));
+  }
+
+  @override
+  Future<LugarModel?> obtenerLugar(String lugarId) async {
+    final falla = error;
+    if (falla != null) throw falla;
+    for (final lugar in lugares) {
+      if (lugar.id == lugarId) return lugar;
+    }
+    return null;
+  }
+}
+
+LugarModel lugarDePrueba({
+  String id = 'l1',
+  String nombre = 'Lugar de prueba',
+  CategoriaLugar categoria = CategoriaLugar.restaurantes,
+  ZonaLugar zona = ZonaLugar.yanahuara,
+  String? direccion,
+  String? horarioAtencion,
+  double? precioEstimadoPen,
+  String? precioNota,
+}) {
+  return LugarModel(
+    id: id,
+    nombre: nombre,
+    categoria: categoria,
+    zona: zona,
+    direccion: direccion,
+    horarioAtencion: horarioAtencion,
+    precioEstimadoPen: precioEstimadoPen,
+    precioNota: precioNota,
   );
 }
