@@ -33,6 +33,9 @@ abstract final class MensajesError {
       'Las selecciones no pueden superar a los candidatos.';
   static const codigoInvalido =
       'El código no es válido o la salida fue cancelada.';
+  static const planCancelado = 'La salida fue cancelada.';
+  static const participanteNoEncontrado =
+      'Esa persona ya no participa en la salida.';
 }
 
 // codigos que lanzan las rpc con raise exception; ver 04_DATABASE_SCHEMA.md seccion 6
@@ -45,6 +48,8 @@ const _mensajesRpc = {
   'selecciones_mayores_que_candidatos':
       MensajesError.seleccionesMayoresQueCandidatos,
   'codigo_invalido': MensajesError.codigoInvalido,
+  'plan_cancelado': MensajesError.planCancelado,
+  'participante_no_encontrado': MensajesError.participanteNoEncontrado,
 };
 
 // traduce excepciones de supabase a mensajes en espanol

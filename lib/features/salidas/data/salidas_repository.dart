@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
+import 'participante_model.dart';
 import 'plan_model.dart';
 
 // datos del formulario de crear plan; los limites llegan ya validados por rango
@@ -49,6 +50,9 @@ class SalidasRepository {
 
   // avisa que la lista de salidas del usuario cambio, para recargarla
   Stream<void> get cambios => _cambios.stream;
+
+  // id del usuario con sesion, para marcar su fila en la lista del grupo
+  String? get usuarioActualId => _cliente.auth.currentUser?.id;
 
   String _usuarioId() {
     final id = _cliente.auth.currentUser?.id;
@@ -123,6 +127,37 @@ class SalidasRepository {
       );
       if (!resultado.yaParticipaba) _cambios.add(null);
       return resultado;
+    } catch (error) {
+      throw traducirError(error);
+    }
+  }
+
+  // integrantes del plan visibles por rls para quien participa
+  Future<List<ParticipanteModel>> obtenerParticipantes(String planId) async {
+    try {
+      final filas = await _cliente
+          .from('participaciones')
+          .select(
+            'perfil_id, rol, es_creador, unido_en, perfiles(nombre_visible)',
+          )
+          .eq('plan_id', planId);
+      return filas.map(ParticipanteModel.fromJson).toList()
+        ..sort(ParticipanteModel.comparar);
+    } catch (error) {
+      throw traducirError(error);
+    }
+  }
+
+  // el rol es permanente; nombrar de nuevo a un administrador no cambia nada
+  Future<void> nombrarAdministrador({
+    required String planId,
+    required String perfilId,
+  }) async {
+    try {
+      await _cliente.rpc(
+        'nombrar_administrador',
+        params: {'p_plan_id': planId, 'p_perfil_id': perfilId},
+      );
     } catch (error) {
       throw traducirError(error);
     }

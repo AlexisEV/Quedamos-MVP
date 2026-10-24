@@ -10,8 +10,9 @@ import '../data/plan_model.dart';
 import '../data/salidas_repository.dart';
 import 'detalle_plan_view_model.dart';
 import 'widgets/cabecera_plan.dart';
+import 'widgets/tarjetas_grupo.dart';
 
-// detalle de la salida: fase, rol, presupuesto, codigo y limites
+// detalle de la salida: fase, rol, presupuesto, codigo, grupo, limites y gestion
 class DetallePlanScreen extends StatelessWidget {
   const DetallePlanScreen({super.key, required this.planId});
 
@@ -51,7 +52,13 @@ class _DetalleVista extends StatelessWidget {
           children: [
             _TarjetaResumen(salida: salida),
             const SizedBox(height: AppSpacing.md),
+            const TarjetaParticipantes(),
+            const SizedBox(height: AppSpacing.md),
             _TarjetaLimites(plan: salida.plan),
+            if (vm.puedeGestionar) ...[
+              const SizedBox(height: AppSpacing.md),
+              const TarjetaGestionAdmin(),
+            ],
           ],
         ),
       );

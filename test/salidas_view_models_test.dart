@@ -145,6 +145,108 @@ void main() {
       expect(ajeno.salida, isNull);
       expect(ajeno.noEncontrado, isTrue);
     });
+
+    test('ordena el grupo: creador, administradores y participantes', () async {
+      repositorio.salidas.add(salida(planDePrueba(id: 'p1')));
+      repositorio.participantesPorPlan['p1'] = [
+        participanteDePrueba('c', minuto: 3),
+        participanteDePrueba('b', rol: RolPlan.administrador, minuto: 2),
+        participanteDePrueba(
+          'a',
+          rol: RolPlan.administrador,
+          esCreador: true,
+          minuto: 1,
+        ),
+      ];
+      final vm = DetallePlanViewModel(repositorio, 'p1');
+
+      await vm.cargar();
+
+      expect(vm.participantes.map((p) => p.perfilId), ['a', 'b', 'c']);
+      expect(vm.participantes.first.etiquetaRol, 'Creador · Administrador');
+      expect(vm.nombrables.map((p) => p.perfilId), ['c']);
+      vm.dispose();
+    });
+
+    test('solo un administrador de un plan activo gestiona roles', () async {
+      repositorio.salidas.addAll([
+        salida(planDePrueba(id: 'p1')),
+        salida(planDePrueba(id: 'p2'), rol: RolPlan.administrador),
+        salida(
+          planDePrueba(id: 'p3', estado: EstadoPlan.cancelado),
+          rol: RolPlan.administrador,
+        ),
+      ]);
+      final participante = DetallePlanViewModel(repositorio, 'p1');
+      final admin = DetallePlanViewModel(repositorio, 'p2');
+      final cancelado = DetallePlanViewModel(repositorio, 'p3');
+
+      await Future.wait([
+        participante.cargar(),
+        admin.cargar(),
+        cancelado.cargar(),
+      ]);
+
+      expect(participante.puedeGestionar, isFalse);
+      expect(admin.puedeGestionar, isTrue);
+      expect(cancelado.puedeGestionar, isFalse);
+      expect(
+        await participante.nombrarAdministrador(participanteDePrueba('x')),
+        isFalse,
+      );
+      expect(repositorio.nombrados, isEmpty);
+    });
+
+    test('nombrar administrador recarga el grupo con el nuevo rol', () async {
+      repositorio.salidas.add(
+        salida(planDePrueba(id: 'p1'), rol: RolPlan.administrador),
+      );
+      repositorio.participantesPorPlan['p1'] = [
+        participanteDePrueba('u1', rol: RolPlan.administrador, esCreador: true),
+        participanteDePrueba('u2', minuto: 5),
+      ];
+      final vm = DetallePlanViewModel(repositorio, 'p1');
+      await vm.cargar();
+
+      final guardado = await vm.nombrarAdministrador(vm.nombrables.single);
+
+      expect(guardado, isTrue);
+      expect(repositorio.nombrados, ['u2']);
+      expect(vm.participantes.last.rol, RolPlan.administrador);
+      expect(vm.nombrables, isEmpty);
+      expect(vm.asignando, isFalse);
+      vm.dispose();
+    });
+
+    test(
+      'si falla la asignacion conserva los roles y muestra el error',
+      () async {
+        repositorio.salidas.add(
+          salida(planDePrueba(id: 'p1'), rol: RolPlan.administrador),
+        );
+        repositorio.participantesPorPlan['p1'] = [
+          participanteDePrueba(
+            'u1',
+            rol: RolPlan.administrador,
+            esCreador: true,
+          ),
+          participanteDePrueba('u2', minuto: 5),
+        ];
+        repositorio.errorNombrar = const AppException(
+          MensajesError.sinConexion,
+        );
+        final vm = DetallePlanViewModel(repositorio, 'p1');
+        await vm.cargar();
+
+        final guardado = await vm.nombrarAdministrador(vm.nombrables.single);
+
+        expect(guardado, isFalse);
+        expect(vm.errorAsignacion, MensajesError.sinConexion);
+        expect(vm.participantes.last.rol, RolPlan.participante);
+        expect(vm.asignando, isFalse);
+        vm.dispose();
+      },
+    );
   });
 
   group('UnirseViewModel', () {

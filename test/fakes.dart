@@ -4,6 +4,7 @@ import 'package:app/core/errors/app_exception.dart';
 import 'package:app/features/auth/data/auth_repository.dart';
 import 'package:app/features/perfil/data/perfil_model.dart';
 import 'package:app/features/perfil/data/perfil_repository.dart';
+import 'package:app/features/salidas/data/participante_model.dart';
 import 'package:app/features/salidas/data/plan_model.dart';
 import 'package:app/features/salidas/data/salidas_repository.dart';
 
@@ -93,6 +94,13 @@ class FakeSalidasRepository implements SalidasRepository {
   // planes a los que se puede unir por codigo; los cancelados son invalidos
   final planesPorCodigo = <String, PlanModel>{};
   final codigosEnviados = <String>[];
+  // integrantes por plan; nombrarAdministrador cambia el rol como la rpc
+  final participantesPorPlan = <String, List<ParticipanteModel>>{};
+  final nombrados = <String>[];
+  AppException? errorNombrar;
+
+  @override
+  String? usuarioActualId = 'u1';
   AppException? error;
   final _cambios = StreamController<void>.broadcast();
 
@@ -161,4 +169,50 @@ class FakeSalidasRepository implements SalidasRepository {
     _cambios.add(null);
     return ResultadoUnion(planId: plan.id, yaParticipaba: false);
   }
+
+  @override
+  Future<List<ParticipanteModel>> obtenerParticipantes(String planId) async {
+    final falla = error;
+    if (falla != null) throw falla;
+    return List.of(participantesPorPlan[planId] ?? const [])
+      ..sort(ParticipanteModel.comparar);
+  }
+
+  @override
+  Future<void> nombrarAdministrador({
+    required String planId,
+    required String perfilId,
+  }) async {
+    nombrados.add(perfilId);
+    final falla = errorNombrar;
+    if (falla != null) throw falla;
+    final lista = participantesPorPlan[planId] ?? [];
+    final indice = lista.indexWhere((p) => p.perfilId == perfilId);
+    if (indice < 0) {
+      throw const AppException(MensajesError.participanteNoEncontrado);
+    }
+    final actual = lista[indice];
+    lista[indice] = ParticipanteModel(
+      perfilId: actual.perfilId,
+      nombreVisible: actual.nombreVisible,
+      rol: RolPlan.administrador,
+      esCreador: actual.esCreador,
+      unidoEn: actual.unidoEn,
+    );
+  }
+}
+
+ParticipanteModel participanteDePrueba(
+  String perfilId, {
+  RolPlan rol = RolPlan.participante,
+  bool esCreador = false,
+  int minuto = 0,
+}) {
+  return ParticipanteModel(
+    perfilId: perfilId,
+    nombreVisible: 'Persona $perfilId',
+    rol: rol,
+    esCreador: esCreador,
+    unidoEn: DateTime.utc(2026, 10, 22, 12, minuto),
+  );
 }
