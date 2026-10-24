@@ -49,6 +49,19 @@ abstract final class Validadores {
     return null;
   }
 
+  static const largoCodigo = 6;
+  static final _formatoCodigo = RegExp(r'^[A-Z0-9]{6}$');
+
+  // la entrada ya llega en mayusculas por el formateador del campo
+  static String? codigoInvitacion(String? valor) {
+    final texto = (valor ?? '').trim().toUpperCase();
+    if (texto.isEmpty) return 'Ingresa el código de la salida.';
+    if (!_formatoCodigo.hasMatch(texto)) {
+      return 'El código tiene $largoCodigo letras o números.';
+    }
+    return null;
+  }
+
   // el registro exige el minimo de supabase auth; el acceso solo que no este vacia
   static String? contrasena(String? valor, {required bool esRegistro}) {
     final texto = valor ?? '';

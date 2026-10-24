@@ -86,10 +86,13 @@ PlanModel planDePrueba({
   );
 }
 
-// repositorio de salidas en memoria; crearPlan es idempotente por id como la rpc
+// repositorio de salidas en memoria; crearPlan y unirseConCodigo son idempotentes como las rpc
 class FakeSalidasRepository implements SalidasRepository {
   final salidas = <SalidaModel>[];
   final creados = <NuevoPlan>[];
+  // planes a los que se puede unir por codigo; los cancelados son invalidos
+  final planesPorCodigo = <String, PlanModel>{};
+  final codigosEnviados = <String>[];
   AppException? error;
   final _cambios = StreamController<void>.broadcast();
 
@@ -131,5 +134,31 @@ class FakeSalidasRepository implements SalidasRepository {
     );
     _cambios.add(null);
     return plan;
+  }
+
+  @override
+  Future<ResultadoUnion> unirseConCodigo(String codigo) async {
+    final normalizado = codigo.trim().toUpperCase();
+    codigosEnviados.add(normalizado);
+    final falla = error;
+    if (falla != null) throw falla;
+    final plan = planesPorCodigo[normalizado];
+    if (plan == null || plan.estado == EstadoPlan.cancelado) {
+      throw const AppException(MensajesError.codigoInvalido);
+    }
+    final existente = await obtenerSalida(plan.id);
+    if (existente != null) {
+      return ResultadoUnion(planId: plan.id, yaParticipaba: true);
+    }
+    salidas.add(
+      SalidaModel(
+        plan: plan,
+        miRol: RolPlan.participante,
+        esCreador: false,
+        totalParticipantes: 2,
+      ),
+    );
+    _cambios.add(null);
+    return ResultadoUnion(planId: plan.id, yaParticipaba: false);
   }
 }

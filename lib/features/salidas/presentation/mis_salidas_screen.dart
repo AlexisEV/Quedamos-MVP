@@ -10,8 +10,9 @@ import '../data/plan_model.dart';
 import '../data/salidas_repository.dart';
 import 'mis_salidas_view_model.dart';
 import 'widgets/tarjeta_salida.dart';
+import 'widgets/tarjeta_unirse.dart';
 
-// pestana mis salidas: acceso a crear plan y lista de planes del usuario
+// pestana mis salidas: acceso a crear plan, unirse con codigo y lista de planes del usuario
 class MisSalidasScreen extends StatelessWidget {
   const MisSalidasScreen({super.key});
 
@@ -60,6 +61,8 @@ class _MisSalidasVista extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.lg),
               _BotonCrear(onTap: () => context.push(Rutas.crearPlan)),
+              const SizedBox(height: AppSpacing.md),
+              const TarjetaUnirse(),
               const SizedBox(height: AppSpacing.lg),
               ..._contenido(context, vm, activas, canceladas),
             ],
@@ -103,7 +106,7 @@ class _MisSalidasVista extends StatelessWidget {
         EstadoVacio(
           icono: Icons.groups_outlined,
           titulo: 'Aún no tienes salidas',
-          mensaje: 'Crea una salida y comparte su código con tus amigos.',
+          mensaje: 'Crea una salida o únete a una con el código de tus amigos.',
         ),
       ];
     }

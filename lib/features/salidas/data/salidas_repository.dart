@@ -26,6 +26,19 @@ class NuevoPlan {
   final int maxActividades;
 }
 
+// respuesta de unirse_con_codigo
+class ResultadoUnion {
+  const ResultadoUnion({required this.planId, required this.yaParticipaba});
+
+  factory ResultadoUnion.fromJson(Map<String, dynamic> json) => ResultadoUnion(
+    planId: json['plan_id'] as String,
+    yaParticipaba: json['ya_participaba'] as bool,
+  );
+
+  final String planId;
+  final bool yaParticipaba;
+}
+
 class SalidasRepository {
   SalidasRepository(this._cliente);
 
@@ -93,6 +106,23 @@ class SalidasRepository {
       final plan = PlanModel.fromJson(fila as Map<String, dynamic>);
       _cambios.add(null);
       return plan;
+    } catch (error) {
+      throw traducirError(error);
+    }
+  }
+
+  // repetir el codigo no duplica la participacion (ver unirse_con_codigo)
+  Future<ResultadoUnion> unirseConCodigo(String codigo) async {
+    try {
+      final respuesta = await _cliente.rpc(
+        'unirse_con_codigo',
+        params: {'p_codigo': codigo.trim().toUpperCase()},
+      );
+      final resultado = ResultadoUnion.fromJson(
+        respuesta as Map<String, dynamic>,
+      );
+      if (!resultado.yaParticipaba) _cambios.add(null);
+      return resultado;
     } catch (error) {
       throw traducirError(error);
     }

@@ -31,6 +31,8 @@ abstract final class MensajesError {
   static const limiteFueraDeRango = 'Algún límite está fuera de su rango.';
   static const seleccionesMayoresQueCandidatos =
       'Las selecciones no pueden superar a los candidatos.';
+  static const codigoInvalido =
+      'El código no es válido o la salida fue cancelada.';
 }
 
 // codigos que lanzan las rpc con raise exception; ver 04_DATABASE_SCHEMA.md seccion 6
@@ -42,6 +44,7 @@ const _mensajesRpc = {
   'limite_fuera_de_rango': MensajesError.limiteFueraDeRango,
   'selecciones_mayores_que_candidatos':
       MensajesError.seleccionesMayoresQueCandidatos,
+  'codigo_invalido': MensajesError.codigoInvalido,
 };
 
 // traduce excepciones de supabase a mensajes en espanol

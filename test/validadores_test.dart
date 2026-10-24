@@ -1,3 +1,4 @@
+import 'package:app/core/utils/formateador_codigo.dart';
 import 'package:app/core/utils/validadores.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -38,5 +39,24 @@ void main() {
     expect(Validadores.leerPresupuesto('0'), 0);
     expect(Validadores.leerPresupuesto('70'), 70);
     expect(Validadores.leerPresupuesto(' 70,5 '), 70.5);
+  });
+
+  test('codigo de invitacion con 6 letras o numeros', () {
+    expect(Validadores.codigoInvitacion(''), isNotNull);
+    expect(Validadores.codigoInvitacion('AQP48'), isNotNull);
+    expect(Validadores.codigoInvitacion('AQP-48'), isNotNull);
+    expect(Validadores.codigoInvitacion('AQP48XY'), isNotNull);
+    expect(Validadores.codigoInvitacion('AQP48X'), isNull);
+    expect(Validadores.codigoInvitacion(' twomoy '), isNull);
+  });
+
+  test('formateador de codigo pasa a mayusculas, filtra y corta en 6', () {
+    String formatear(String texto) => FormateadorCodigo()
+        .formatEditUpdate(TextEditingValue.empty, TextEditingValue(text: texto))
+        .text;
+
+    expect(formatear('twomoy'), 'TWOMOY');
+    expect(formatear('aqp-48x'), 'AQP48X');
+    expect(formatear('ab cd ef gh'), 'ABCDEF');
   });
 }
