@@ -1,15 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/errors/app_exception.dart';
+import '../../lugares/data/propuesta_model.dart';
+import '../../lugares/data/propuestas_repository.dart';
 import '../data/participante_model.dart';
 import '../data/plan_model.dart';
 import '../data/salidas_repository.dart';
 
 class DetallePlanViewModel extends ChangeNotifier {
-  DetallePlanViewModel(this._repositorio, this.planId);
+  DetallePlanViewModel(this._repositorio, this._propuestas, this.planId) {
+    // las propuestas pueden cambiar desde la ficha de un lugar en otra pestana
+    _suscripcion = _propuestas.cambios
+        .where((id) => id == planId)
+        .listen((_) => _recargarPropuestas());
+  }
 
   final SalidasRepository _repositorio;
+  final PropuestasRepository _propuestas;
   final String planId;
+  late final StreamSubscription<String> _suscripcion;
 
   SalidaModel? _salida;
   List<ParticipanteModel> _participantes = const [];
@@ -18,6 +29,9 @@ class DetallePlanViewModel extends ChangeNotifier {
   String? _error;
   bool _asignando = false;
   String? _errorAsignacion;
+  List<PropuestaModel> _listaPropuestas = const [];
+  String? _retirando;
+  String? _errorPropuestas;
   bool _desechado = false;
 
   SalidaModel? get salida => _salida;
@@ -29,6 +43,26 @@ class DetallePlanViewModel extends ChangeNotifier {
   bool get asignando => _asignando;
   String? get errorAsignacion => _errorAsignacion;
   String? get usuarioActualId => _repositorio.usuarioActualId;
+  List<PropuestaModel> get propuestas => _listaPropuestas;
+  // id de la propuesta que se esta retirando
+  String? get retirando => _retirando;
+  String? get errorPropuestas => _errorPropuestas;
+
+  bool get recibePropuestas =>
+      _salida?.plan.estado == EstadoPlan.recibiendoPropuestas;
+
+  int propuestasDe(String perfilId) =>
+      _listaPropuestas.where((p) => p.propuestoPor == perfilId).length;
+
+  int get misPropuestas => propuestasDe(usuarioActualId ?? '');
+
+  // el autor o un administrador retira solo mientras se reciben propuestas (rf05)
+  bool puedeRetirar(PropuestaModel propuesta) {
+    final salida = _salida;
+    return salida != null &&
+        recibePropuestas &&
+        (propuesta.propuestoPor == usuarioActualId || salida.esAdministrador);
+  }
 
   // solo administradores de un plan no cancelado gestionan roles (rf17)
   bool get puedeGestionar {
@@ -53,6 +87,9 @@ class DetallePlanViewModel extends ChangeNotifier {
       _participantes = salida == null
           ? const []
           : await _repositorio.obtenerParticipantes(planId);
+      _listaPropuestas = salida == null
+          ? const []
+          : await _propuestas.obtenerPropuestas(planId);
     } catch (error) {
       _error = _mensaje(error);
     } finally {
@@ -88,6 +125,36 @@ class DetallePlanViewModel extends ChangeNotifier {
     return true;
   }
 
+  Future<void> _recargarPropuestas() async {
+    try {
+      _listaPropuestas = await _propuestas.obtenerPropuestas(planId);
+      _notificar();
+    } catch (_) {
+      // se conserva la lista anterior; la siguiente recarga la actualiza
+    }
+  }
+
+  // true solo cuando el servidor confirmo el retiro; si falla la lista no cambia
+  Future<bool> retirarPropuesta(PropuestaModel propuesta) async {
+    if (_retirando != null || !puedeRetirar(propuesta)) return false;
+    _retirando = propuesta.id;
+    _errorPropuestas = null;
+    _notificar();
+    try {
+      await _propuestas.retirar(propuesta);
+      _listaPropuestas = _listaPropuestas
+          .where((p) => p.id != propuesta.id)
+          .toList();
+      return true;
+    } catch (error) {
+      _errorPropuestas = _mensaje(error);
+      return false;
+    } finally {
+      _retirando = null;
+      _notificar();
+    }
+  }
+
   String _mensaje(Object error) =>
       error is AppException ? error.mensaje : MensajesError.generico;
 
@@ -98,6 +165,7 @@ class DetallePlanViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _desechado = true;
+    _suscripcion.cancel();
     super.dispose();
   }
 }

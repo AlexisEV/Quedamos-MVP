@@ -7,9 +7,11 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../core/utils/formato.dart';
 import '../../../core/widgets/estado_vacio.dart';
 import '../data/plan_model.dart';
+import '../../lugares/data/propuestas_repository.dart';
 import '../data/salidas_repository.dart';
 import 'detalle_plan_view_model.dart';
 import 'widgets/cabecera_plan.dart';
+import 'widgets/tarjeta_propuestas.dart';
 import 'widgets/tarjetas_grupo.dart';
 
 // detalle de la salida: fase, rol, presupuesto, codigo, grupo, limites y gestion
@@ -21,9 +23,11 @@ class DetallePlanScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) =>
-          DetallePlanViewModel(context.read<SalidasRepository>(), planId)
-            ..cargar(),
+      create: (context) => DetallePlanViewModel(
+        context.read<SalidasRepository>(),
+        context.read<PropuestasRepository>(),
+        planId,
+      )..cargar(),
       child: const _DetalleVista(),
     );
   }
@@ -51,6 +55,8 @@ class _DetalleVista extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.margin),
           children: [
             _TarjetaResumen(salida: salida),
+            const SizedBox(height: AppSpacing.md),
+            const TarjetaPropuestas(),
             const SizedBox(height: AppSpacing.md),
             const TarjetaParticipantes(),
             const SizedBox(height: AppSpacing.md),

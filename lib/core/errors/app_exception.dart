@@ -36,6 +36,11 @@ abstract final class MensajesError {
   static const planCancelado = 'La salida fue cancelada.';
   static const participanteNoEncontrado =
       'Esa persona ya no participa en la salida.';
+  static const faseNoPermitePropuestas = 'La salida ya no recibe propuestas.';
+  static const lugarNoDisponible = 'Este lugar ya no está disponible.';
+  static const lugarYaPropuesto = 'Ese lugar ya fue propuesto en esta salida.';
+  static const limitePropuestasAlcanzado =
+      'Llegaste a tu límite de propuestas en esta salida.';
 }
 
 // codigos que lanzan las rpc con raise exception; ver 04_DATABASE_SCHEMA.md seccion 6
@@ -50,6 +55,10 @@ const _mensajesRpc = {
   'codigo_invalido': MensajesError.codigoInvalido,
   'plan_cancelado': MensajesError.planCancelado,
   'participante_no_encontrado': MensajesError.participanteNoEncontrado,
+  'fase_no_permite_propuestas': MensajesError.faseNoPermitePropuestas,
+  'lugar_no_disponible': MensajesError.lugarNoDisponible,
+  'lugar_ya_propuesto': MensajesError.lugarYaPropuesto,
+  'limite_propuestas_alcanzado': MensajesError.limitePropuestasAlcanzado,
 };
 
 // traduce excepciones de supabase a mensajes en espanol

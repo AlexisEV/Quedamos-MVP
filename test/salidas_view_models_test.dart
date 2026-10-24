@@ -135,12 +135,20 @@ void main() {
     test('carga el plan o marca no encontrado', () async {
       repositorio.salidas.add(salida(planDePrueba(id: 'p1')));
 
-      final encontrado = DetallePlanViewModel(repositorio, 'p1');
+      final encontrado = DetallePlanViewModel(
+        repositorio,
+        FakePropuestasRepository(),
+        'p1',
+      );
       await encontrado.cargar();
       expect(encontrado.salida?.plan.codigoInvitacion, 'AQP48X');
       expect(encontrado.noEncontrado, isFalse);
 
-      final ajeno = DetallePlanViewModel(repositorio, 'otro');
+      final ajeno = DetallePlanViewModel(
+        repositorio,
+        FakePropuestasRepository(),
+        'otro',
+      );
       await ajeno.cargar();
       expect(ajeno.salida, isNull);
       expect(ajeno.noEncontrado, isTrue);
@@ -158,7 +166,11 @@ void main() {
           minuto: 1,
         ),
       ];
-      final vm = DetallePlanViewModel(repositorio, 'p1');
+      final vm = DetallePlanViewModel(
+        repositorio,
+        FakePropuestasRepository(),
+        'p1',
+      );
 
       await vm.cargar();
 
@@ -177,9 +189,21 @@ void main() {
           rol: RolPlan.administrador,
         ),
       ]);
-      final participante = DetallePlanViewModel(repositorio, 'p1');
-      final admin = DetallePlanViewModel(repositorio, 'p2');
-      final cancelado = DetallePlanViewModel(repositorio, 'p3');
+      final participante = DetallePlanViewModel(
+        repositorio,
+        FakePropuestasRepository(),
+        'p1',
+      );
+      final admin = DetallePlanViewModel(
+        repositorio,
+        FakePropuestasRepository(),
+        'p2',
+      );
+      final cancelado = DetallePlanViewModel(
+        repositorio,
+        FakePropuestasRepository(),
+        'p3',
+      );
 
       await Future.wait([
         participante.cargar(),
@@ -205,7 +229,11 @@ void main() {
         participanteDePrueba('u1', rol: RolPlan.administrador, esCreador: true),
         participanteDePrueba('u2', minuto: 5),
       ];
-      final vm = DetallePlanViewModel(repositorio, 'p1');
+      final vm = DetallePlanViewModel(
+        repositorio,
+        FakePropuestasRepository(),
+        'p1',
+      );
       await vm.cargar();
 
       final guardado = await vm.nombrarAdministrador(vm.nombrables.single);
@@ -235,7 +263,11 @@ void main() {
         repositorio.errorNombrar = const AppException(
           MensajesError.sinConexion,
         );
-        final vm = DetallePlanViewModel(repositorio, 'p1');
+        final vm = DetallePlanViewModel(
+          repositorio,
+          FakePropuestasRepository(),
+          'p1',
+        );
         await vm.cargar();
 
         final guardado = await vm.nombrarAdministrador(vm.nombrables.single);

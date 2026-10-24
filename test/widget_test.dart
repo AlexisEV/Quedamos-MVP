@@ -7,11 +7,14 @@ import 'package:app/features/auth/presentation/acceso_screen.dart';
 import 'package:app/features/auth/presentation/sesion_view_model.dart';
 import 'package:app/features/lugares/data/lugar_model.dart';
 import 'package:app/features/lugares/data/lugares_repository.dart';
+import 'package:app/features/lugares/data/propuestas_repository.dart';
+import 'package:app/features/lugares/presentation/destino_propuesta.dart';
 import 'package:app/features/lugares/presentation/explorar_screen.dart';
 import 'package:app/features/lugares/presentation/ficha_lugar_screen.dart';
 import 'package:app/features/perfil/data/perfil_model.dart';
 import 'package:app/features/perfil/data/perfil_repository.dart';
 import 'package:app/features/perfil/presentation/perfil_screen.dart';
+import 'package:app/features/salidas/data/plan_model.dart';
 import 'package:app/features/salidas/data/salidas_repository.dart';
 import 'package:app/features/salidas/presentation/detalle_plan_screen.dart';
 import 'package:app/features/salidas/presentation/mis_salidas_screen.dart';
@@ -28,6 +31,7 @@ Future<StreamController<bool>> montarApp(
   FakeAuthRepository? auth,
   FakeSalidasRepository? salidas,
   FakeLugaresRepository? lugares,
+  FakePropuestasRepository? propuestas,
 }) async {
   final cambios = StreamController<bool>();
   final sesion = SesionViewModel(
@@ -58,6 +62,12 @@ Future<StreamController<bool>> montarApp(
         ),
         Provider<LugaresRepository>.value(
           value: lugares ?? FakeLugaresRepository(),
+        ),
+        Provider<PropuestasRepository>.value(
+          value: propuestas ?? FakePropuestasRepository(),
+        ),
+        ChangeNotifierProvider<DestinoPropuesta>(
+          create: (_) => DestinoPropuesta(),
         ),
       ],
       child: MaterialApp.router(theme: AppTheme.claro, routerConfig: router),
@@ -212,6 +222,72 @@ void main() {
     expect(find.text('S/ 38.00'), findsOneWidget);
     expect(
       find.text('plato de fondo\nPrecio orientativo, puede variar.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('la ficha propone eligiendo el plan y luego marca ya propuesto', (
+    tester,
+  ) async {
+    final plan = planDePrueba(id: 'p1', nombre: 'Sábado');
+    final propuestas = FakePropuestasRepository(
+      salidas: [
+        SalidaModel(
+          plan: plan,
+          miRol: RolPlan.administrador,
+          esCreador: true,
+          totalParticipantes: 2,
+        ),
+      ],
+      lugares: {'l1': 'Bar de prueba'},
+    );
+    await montarApp(
+      tester,
+      haySesion: true,
+      lugares: FakeLugaresRepository([
+        lugarDePrueba(id: 'l1', nombre: 'Bar de prueba'),
+      ]),
+      propuestas: propuestas,
+    );
+
+    await tester.tap(find.byIcon(Icons.explore_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bar de prueba'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Proponer al grupo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Elegir plan de destino'), findsOneWidget);
+    expect(find.text('Tus propuestas 0/3'), findsOneWidget);
+
+    await tester.tap(find.text('Sábado'));
+    await tester.pumpAndSettle();
+    expect(propuestas.llamadasProponer, ['p1:l1']);
+    expect(find.text('Propuesto en Sábado.'), findsOneWidget);
+    expect(find.text('Ya propuesto en este plan'), findsOneWidget);
+    expect(find.text('Proponer para: Sábado'), findsOneWidget);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Proponer para'), findsOneWidget);
+  });
+
+  testWidgets('sin salidas que reciban propuestas el selector lo explica', (
+    tester,
+  ) async {
+    await montarApp(
+      tester,
+      haySesion: true,
+      lugares: FakeLugaresRepository([lugarDePrueba(id: 'l1')]),
+    );
+
+    await tester.tap(find.byIcon(Icons.explore_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lugar de prueba'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Proponer al grupo'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No tienes salidas recibiendo propuestas'),
       findsOneWidget,
     );
   });

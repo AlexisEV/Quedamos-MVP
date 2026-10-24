@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/presentation/sesion_view_model.dart';
 import '../features/lugares/data/lugares_repository.dart';
+import '../features/lugares/data/propuestas_repository.dart';
+import '../features/lugares/presentation/destino_propuesta.dart';
 import '../features/perfil/data/perfil_repository.dart';
 import '../features/salidas/data/salidas_repository.dart';
 import 'router.dart';
@@ -17,12 +19,14 @@ class QuedamosApp extends StatefulWidget {
     required this.perfilRepository,
     required this.salidasRepository,
     required this.lugaresRepository,
+    required this.propuestasRepository,
   });
 
   final AuthRepository authRepository;
   final PerfilRepository perfilRepository;
   final SalidasRepository salidasRepository;
   final LugaresRepository lugaresRepository;
+  final PropuestasRepository propuestasRepository;
 
   @override
   State<QuedamosApp> createState() => _QuedamosAppState();
@@ -37,8 +41,23 @@ class _QuedamosAppState extends State<QuedamosApp> {
   // el router se crea una sola vez para no perder la navegacion al reconstruir
   late final GoRouter _router = crearRouter(_sesion);
 
+  final _destino = DestinoPropuesta();
+
+  @override
+  void initState() {
+    super.initState();
+    _sesion.addListener(_limpiarDestinoSinSesion);
+  }
+
+  // el destino pertenece a la cuenta; no pasa a la siguiente sesion
+  void _limpiarDestinoSinSesion() {
+    if (!_sesion.haySesion) _destino.limpiar();
+  }
+
   @override
   void dispose() {
+    _sesion.removeListener(_limpiarDestinoSinSesion);
+    _destino.dispose();
     _router.dispose();
     _sesion.dispose();
     super.dispose();
@@ -52,6 +71,10 @@ class _QuedamosAppState extends State<QuedamosApp> {
         Provider<PerfilRepository>.value(value: widget.perfilRepository),
         Provider<SalidasRepository>.value(value: widget.salidasRepository),
         Provider<LugaresRepository>.value(value: widget.lugaresRepository),
+        Provider<PropuestasRepository>.value(
+          value: widget.propuestasRepository,
+        ),
+        ChangeNotifierProvider<DestinoPropuesta>.value(value: _destino),
         ChangeNotifierProvider<SesionViewModel>.value(value: _sesion),
       ],
       child: MaterialApp.router(

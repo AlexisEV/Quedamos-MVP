@@ -7,7 +7,11 @@ import '../../../core/utils/formato.dart';
 import '../../../core/widgets/estado_vacio.dart';
 import '../data/lugar_model.dart';
 import '../data/lugares_repository.dart';
+import '../data/propuestas_repository.dart';
+import 'destino_propuesta.dart';
 import 'ficha_lugar_view_model.dart';
+import 'proponer_view_model.dart';
+import 'widgets/barra_proponer.dart';
 import 'widgets/estilo_lugar.dart';
 
 // ficha del lugar: ubicacion, horario y precio, distinguiendo lo desconocido (p04)
@@ -18,10 +22,21 @@ class FichaLugarScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) =>
-          FichaLugarViewModel(context.read<LugaresRepository>(), lugarId)
-            ..cargar(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) =>
+              FichaLugarViewModel(context.read<LugaresRepository>(), lugarId)
+                ..cargar(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => ProponerViewModel(
+            context.read<PropuestasRepository>(),
+            context.read<DestinoPropuesta>(),
+            lugarId,
+          )..cargar(),
+        ),
+      ],
       child: const _FichaVista(),
     );
   }
@@ -36,6 +51,8 @@ class _FichaVista extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Ficha del lugar')),
       body: _cuerpo(vm),
+      // solo se propone un lugar que sigue publicado
+      bottomNavigationBar: vm.lugar == null ? null : const BarraProponer(),
     );
   }
 

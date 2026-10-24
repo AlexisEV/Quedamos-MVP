@@ -4,6 +4,8 @@ import 'package:app/core/errors/app_exception.dart';
 import 'package:app/features/auth/data/auth_repository.dart';
 import 'package:app/features/lugares/data/lugar_model.dart';
 import 'package:app/features/lugares/data/lugares_repository.dart';
+import 'package:app/features/lugares/data/propuesta_model.dart';
+import 'package:app/features/lugares/data/propuestas_repository.dart';
 import 'package:app/features/perfil/data/perfil_model.dart';
 import 'package:app/features/perfil/data/perfil_repository.dart';
 import 'package:app/features/salidas/data/participante_model.dart';
@@ -263,5 +265,123 @@ LugarModel lugarDePrueba({
     horarioAtencion: horarioAtencion,
     precioEstimadoPen: precioEstimadoPen,
     precioNota: precioNota,
+  );
+}
+
+// propuestas en memoria con las reglas de proponer_lugar y retirar_propuesta
+class FakePropuestasRepository implements PropuestasRepository {
+  FakePropuestasRepository({
+    List<SalidaModel>? salidas,
+    this.lugares = const {},
+  }) : salidas = salidas ?? [];
+
+  // salidas del usuario actual; solo las que reciben propuestas son destinos
+  final List<SalidaModel> salidas;
+  // nombre de cada lugar publicado del catalogo por id
+  final Map<String, String> lugares;
+  final propuestas = <PropuestaModel>[];
+  final llamadasProponer = <String>[];
+  AppException? error;
+  AppException? errorProponer;
+  AppException? errorRetirar;
+  final _cambios = StreamController<String>.broadcast();
+
+  @override
+  String? usuarioActualId = 'u1';
+
+  @override
+  Stream<String> get cambios => _cambios.stream;
+
+  @override
+  Future<List<PropuestaModel>> obtenerPropuestas(String planId) async {
+    final falla = error;
+    if (falla != null) throw falla;
+    return propuestas.where((p) => p.planId == planId).toList();
+  }
+
+  @override
+  Future<List<DestinoPlan>> obtenerDestinos() async {
+    final falla = error;
+    if (falla != null) throw falla;
+    return [
+      for (final salida in salidas)
+        if (salida.plan.estado == EstadoPlan.recibiendoPropuestas)
+          DestinoPlan(
+            salida: salida,
+            misPropuestas: propuestas
+                .where(
+                  (p) =>
+                      p.planId == salida.plan.id &&
+                      p.propuestoPor == usuarioActualId,
+                )
+                .length,
+            lugaresPropuestos: {
+              for (final p in propuestas)
+                if (p.planId == salida.plan.id) p.lugarId,
+            },
+          ),
+    ];
+  }
+
+  @override
+  Future<void> proponer({
+    required String planId,
+    required String lugarId,
+  }) async {
+    llamadasProponer.add('$planId:$lugarId');
+    final falla = errorProponer;
+    if (falla != null) throw falla;
+    final destinos = await obtenerDestinos();
+    final destino = destinos.where((d) => d.plan.id == planId).firstOrNull;
+    if (destino == null) {
+      throw const AppException(MensajesError.faseNoPermitePropuestas);
+    }
+    final existente = propuestas
+        .where((p) => p.planId == planId && p.lugarId == lugarId)
+        .firstOrNull;
+    if (existente != null) {
+      if (existente.propuestoPor == usuarioActualId) return;
+      throw const AppException(MensajesError.lugarYaPropuesto);
+    }
+    if (destino.limiteAlcanzado) {
+      throw const AppException(MensajesError.limitePropuestasAlcanzado);
+    }
+    propuestas.add(
+      propuestaDePrueba(
+        id: 'pr${propuestas.length + 1}',
+        planId: planId,
+        lugarId: lugarId,
+        propuestoPor: usuarioActualId!,
+        nombreLugar: lugares[lugarId],
+      ),
+    );
+    _cambios.add(planId);
+  }
+
+  @override
+  Future<void> retirar(PropuestaModel propuesta) async {
+    final falla = errorRetirar;
+    if (falla != null) throw falla;
+    propuestas.removeWhere((p) => p.id == propuesta.id);
+    _cambios.add(propuesta.planId);
+  }
+}
+
+PropuestaModel propuestaDePrueba({
+  String id = 'pr1',
+  String planId = 'p1',
+  String lugarId = 'l1',
+  String propuestoPor = 'u1',
+  String? nombreLugar = 'Lugar de prueba',
+}) {
+  return PropuestaModel(
+    id: id,
+    planId: planId,
+    lugarId: lugarId,
+    propuestoPor: propuestoPor,
+    nombreAutor: 'Persona $propuestoPor',
+    createdAt: DateTime.utc(2026, 10, 25),
+    nombreLugar: nombreLugar,
+    categoria: nombreLugar == null ? null : CategoriaLugar.restaurantes,
   );
 }

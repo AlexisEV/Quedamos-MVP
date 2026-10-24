@@ -8,7 +8,9 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../core/widgets/estado_vacio.dart';
 import '../data/lugar_model.dart';
 import '../data/lugares_repository.dart';
+import 'destino_propuesta.dart';
 import 'explorar_view_model.dart';
+import 'widgets/selector_destino.dart';
 import 'widgets/tarjeta_lugar.dart';
 
 // pestana explorar: catalogo de lugares de arequipa (p03)
@@ -49,6 +51,7 @@ class _ExplorarVista extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
+              const _AvisoDestino(),
               ..._contenido(context, vm),
             ],
           ),
@@ -99,6 +102,68 @@ class _ExplorarVista extends StatelessWidget {
       child: TarjetaLugar(
         lugar: lugar,
         onTap: () => context.push(Rutas.fichaLugar(lugar.id)),
+      ),
+    );
+  }
+}
+
+// plan al que se envian las propuestas desde la ficha, si ya se eligio
+class _AvisoDestino extends StatelessWidget {
+  const _AvisoDestino();
+
+  Future<void> _cambiar(BuildContext context) async {
+    final destino = context.read<DestinoPropuesta>();
+    final elegido = await elegirDestino(context);
+    if (elegido != null) destino.fijar(elegido.plan);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final destino = context.watch<DestinoPropuesta>();
+    if (!destino.hayDestino) return const SizedBox.shrink();
+    final textos = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.sm,
+          AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.tealSurface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.event_note_outlined, color: AppColors.primary),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Proponer para',
+                    style: textos.labelMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    destino.nombrePlan ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: textos.titleMedium,
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => _cambiar(context),
+              child: const Text('Cambiar'),
+            ),
+          ],
+        ),
       ),
     );
   }

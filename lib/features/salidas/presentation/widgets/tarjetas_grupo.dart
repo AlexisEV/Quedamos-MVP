@@ -37,6 +37,8 @@ class TarjetaParticipantes extends StatelessWidget {
               _FilaParticipante(
                 participante: participante,
                 esUsuarioActual: participante.perfilId == vm.usuarioActualId,
+                propuestas: vm.propuestasDe(participante.perfilId),
+                maxPropuestas: vm.salida?.plan.maxPropuestasPorPersona ?? 0,
               ),
           ],
         ),
@@ -49,10 +51,14 @@ class _FilaParticipante extends StatelessWidget {
   const _FilaParticipante({
     required this.participante,
     required this.esUsuarioActual,
+    required this.propuestas,
+    required this.maxPropuestas,
   });
 
   final ParticipanteModel participante;
   final bool esUsuarioActual;
+  final int propuestas;
+  final int maxPropuestas;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +96,11 @@ class _FilaParticipante extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          // solo el conteo: proponer no es obligatorio, no hay pendientes
+          Text(
+            '$propuestas/$maxPropuestas propuestas',
+            style: textos.labelMedium?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
