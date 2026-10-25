@@ -376,6 +376,78 @@ void main() {
     expect(find.text('Preparar votación'), findsNothing);
   });
 
+  testWidgets('el admin cierra la votacion y resuelve el empate', (
+    tester,
+  ) async {
+    final salidas = FakeSalidasRepository()
+      ..salidas.add(
+        SalidaModel(
+          plan: planDePrueba(estado: EstadoPlan.enVotacion, maxActividades: 2),
+          miRol: RolPlan.administrador,
+          esCreador: true,
+          totalParticipantes: 2,
+        ),
+      );
+    final votacion = FakeVotacionRepository(salidas)
+      ..candidatosPorPlan['p1'] = ['l1', 'l2', 'l3', 'l4']
+      ..votosAjenos.addAll({'cl1': 2, 'cl2': 1, 'cl3': 1});
+    Finder lista() => find
+        .descendant(
+          of: find.byType(ListView).hitTestable(),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await montarApp(
+      tester,
+      haySesion: true,
+      salidas: salidas,
+      votacion: votacion,
+    );
+
+    await tester.tap(find.text('Sábado en Yanahuara'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Cerrar votación'),
+      200,
+      scrollable: lista(),
+    );
+    await tester.tap(find.text('Cerrar votación'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('no se puede reabrir'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Cerrar votación'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Votación cerrada.'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Resultado de la votación'),
+      -200,
+      scrollable: lista(),
+    );
+    expect(find.text('Pasa al itinerario'), findsOneWidget);
+    expect(find.text('Empate'), findsNWidgets(2));
+    await tester.ensureVisible(find.text('Resolver empate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Resolver empate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Elegir (0/1)'), findsOneWidget);
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Lugar l3'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Elegir (1/1)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Confirmar'));
+    await tester.pumpAndSettle();
+
+    expect(votacion.llamadas.last, 'empate:cl3');
+    expect(find.text('Empate resuelto.'), findsOneWidget);
+    // la tarjeta puede quedar fuera de la vista tras la recarga
+    expect(
+      find.text('Pasa al itinerario', skipOffstage: false),
+      findsNWidgets(2),
+    );
+    expect(find.text('Empate', skipOffstage: false), findsNothing);
+    expect(find.text('Resolver empate', skipOffstage: false), findsNothing);
+  });
+
   testWidgets('un participante vota desde el detalle y ve los totales', (
     tester,
   ) async {

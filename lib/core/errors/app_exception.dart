@@ -58,6 +58,16 @@ abstract final class MensajesError {
       'Algún lugar ya no es candidato. Recarga la votación.';
   static const limiteSeleccionesSuperado =
       'Elegiste más lugares de los permitidos.';
+  static const sinVotos =
+      'Nadie votó todavía: la votación sigue abierta hasta que haya votos.';
+  static const faseNoPermiteDesempate =
+      'Solo se resuelve un empate con la votación cerrada.';
+  static const sinEmpatePendiente =
+      'El empate ya se resolvió. Recarga la salida.';
+  static const candidatoNoEmpatado =
+      'Algún lugar elegido no está empatado. Recarga la salida.';
+  static const cantidadDesempateInvalida =
+      'Elige exactamente los lugares que faltan para el itinerario.';
 }
 
 // codigos que lanzan las rpc con raise exception; ver 04_DATABASE_SCHEMA.md seccion 6
@@ -86,6 +96,11 @@ const _mensajesRpc = {
   'seleccion_vacia': MensajesError.seleccionVacia,
   'candidato_no_valido': MensajesError.candidatoNoValido,
   'limite_selecciones_superado': MensajesError.limiteSeleccionesSuperado,
+  'sin_votos': MensajesError.sinVotos,
+  'fase_no_permite_desempate': MensajesError.faseNoPermiteDesempate,
+  'sin_empate_pendiente': MensajesError.sinEmpatePendiente,
+  'candidato_no_empatado': MensajesError.candidatoNoEmpatado,
+  'cantidad_desempate_invalida': MensajesError.cantidadDesempateInvalida,
 };
 
 // traduce excepciones de supabase a mensajes en espanol

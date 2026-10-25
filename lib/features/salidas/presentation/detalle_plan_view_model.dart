@@ -6,6 +6,7 @@ import '../../../core/errors/app_exception.dart';
 import '../../lugares/data/propuesta_model.dart';
 import '../../lugares/data/propuestas_repository.dart';
 import '../../votacion/data/candidato_model.dart';
+import '../../votacion/data/resultado_votacion.dart';
 import '../../votacion/data/votacion_repository.dart';
 import '../data/participante_model.dart';
 import '../data/plan_model.dart';
@@ -43,6 +44,10 @@ class DetallePlanViewModel extends ChangeNotifier {
   Set<String> _misVotos = const {};
   String? _retirando;
   String? _errorPropuestas;
+  bool _cerrando = false;
+  String? _errorCierre;
+  bool _resolviendo = false;
+  String? _errorEmpate;
   bool _desechado = false;
 
   SalidaModel? get salida => _salida;
@@ -68,6 +73,33 @@ class DetallePlanViewModel extends ChangeNotifier {
     final maximo = _salida?.plan.maxSelecciones ?? 0;
     return maximo < _candidatos.length ? maximo : _candidatos.length;
   }
+
+  bool get cerrando => _cerrando;
+  String? get errorCierre => _errorCierre;
+  bool get resolviendo => _resolviendo;
+  String? get errorEmpate => _errorEmpate;
+
+  // tras el cierre los candidatos se muestran como resultado ordenado por votos
+  bool get votacionCerrada => switch (_salida?.plan.estado) {
+    EstadoPlan.preparandoItinerario || EstadoPlan.confirmado => true,
+    _ => false,
+  };
+
+  ResultadoVotacion? get resultado {
+    final salida = _salida;
+    if (salida == null || !votacionCerrada) return null;
+    return ResultadoVotacion(_candidatos, salida.plan.maxActividades);
+  }
+
+  // solo administradores cierran, de forma manual (rf08, rb05)
+  bool get puedeCerrarVotacion =>
+      enVotacion && (_salida?.esAdministrador ?? false);
+
+  // solo administradores eligen entre los empatados antes de armar el itinerario (rb06)
+  bool get puedeResolverEmpate =>
+      _salida?.plan.estado == EstadoPlan.preparandoItinerario &&
+      (_salida?.esAdministrador ?? false) &&
+      (resultado?.empatePendiente ?? false);
 
   bool get recibePropuestas =>
       _salida?.plan.estado == EstadoPlan.recibiendoPropuestas;
@@ -161,6 +193,47 @@ class DetallePlanViewModel extends ChangeNotifier {
     }
     _asignando = false;
     _notificar();
+    return true;
+  }
+
+  // true solo cuando el servidor confirmo el cierre; un rechazo deja la votacion abierta
+  Future<bool> cerrarVotacion() async {
+    if (_cerrando || !puedeCerrarVotacion) return false;
+    _cerrando = true;
+    _errorCierre = null;
+    _notificar();
+    try {
+      await _votacion.cerrarVotacion(planId);
+    } catch (error) {
+      _errorCierre = _mensaje(error);
+      _cerrando = false;
+      _notificar();
+      return false;
+    }
+    _cerrando = false;
+    await cargar();
+    return true;
+  }
+
+  // true solo cuando el servidor guardo la eleccion; si falla el resultado no cambia
+  Future<bool> resolverEmpate(Set<String> candidatoIds) async {
+    if (_resolviendo || !puedeResolverEmpate) return false;
+    _resolviendo = true;
+    _errorEmpate = null;
+    _notificar();
+    try {
+      await _votacion.resolverEmpate(
+        planId: planId,
+        candidatoIds: candidatoIds,
+      );
+    } catch (error) {
+      _errorEmpate = _mensaje(error);
+      _resolviendo = false;
+      _notificar();
+      return false;
+    }
+    _resolviendo = false;
+    await cargar();
     return true;
   }
 

@@ -419,6 +419,11 @@ class FakeVotacionRepository implements VotacionRepository {
   AppException? errorGuardarVotos;
   AppException? errorTotales;
   var guardadosVotos = 0;
+  // instantanea de totales y seleccion guardada al cerrar, por candidato
+  final totalesCerrados = <String, int>{};
+  final seleccionados = <String>{};
+  AppException? errorCerrar;
+  AppException? errorEmpate;
 
   @override
   Future<List<CandidatoModel>> obtenerCandidatos(String planId) async {
@@ -429,6 +434,8 @@ class FakeVotacionRepository implements VotacionRepository {
           planId: planId,
           lugarId: lugarId,
           nombreLugar: 'Lugar $lugarId',
+          totalVotos: totalesCerrados['c$lugarId'],
+          seleccionado: seleccionados.contains('c$lugarId'),
         ),
     ];
   }
@@ -589,5 +596,46 @@ class FakeVotacionRepository implements VotacionRepository {
     }
     misVotosPorPlan[planId] = {...candidatoIds};
     guardadosVotos++;
+  }
+
+  // misma regla de seleccion que cerrar_votacion
+  @override
+  Future<PlanModel> cerrarVotacion(String planId) async {
+    llamadas.add('cerrar');
+    final falla = errorCerrar;
+    if (falla != null) throw falla;
+    final plan = _plan(planId);
+    if (plan.estado != EstadoPlan.enVotacion) return plan;
+    final totales = await obtenerTotales(planId);
+    if (totales.values.every((total) => total == 0)) {
+      throw const AppException(MensajesError.sinVotos);
+    }
+    totalesCerrados.addAll(totales);
+    final votados = totales.values.where((t) => t > 0).toList()
+      ..sort((a, b) => b.compareTo(a));
+    final maximo = plan.maxActividades;
+    final corte = votados.length > maximo ? votados[maximo - 1] : 1;
+    final hayEmpate =
+        votados.length > maximo &&
+        votados.where((t) => t >= corte).length > maximo;
+    seleccionados.addAll([
+      for (final MapEntry(:key, :value) in totales.entries)
+        if (hayEmpate ? value > corte : value >= corte) key,
+    ]);
+    final nuevo = _copiar(plan, estado: EstadoPlan.preparandoItinerario);
+    _reemplazar(nuevo);
+    salidas.avisarCambio();
+    return nuevo;
+  }
+
+  @override
+  Future<void> resolverEmpate({
+    required String planId,
+    required Set<String> candidatoIds,
+  }) async {
+    llamadas.add('empate:${candidatoIds.join(',')}');
+    final falla = errorEmpate;
+    if (falla != null) throw falla;
+    seleccionados.addAll(candidatoIds);
   }
 }

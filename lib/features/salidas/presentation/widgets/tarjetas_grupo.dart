@@ -230,6 +230,37 @@ class TarjetaGestionAdmin extends StatelessWidget {
     await vm.cargar();
   }
 
+  Future<void> _cerrarVotacion(BuildContext context) async {
+    final vm = context.read<DetallePlanViewModel>();
+    final mensajes = ScaffoldMessenger.of(context);
+    final actividades = vm.salida?.plan.maxActividades ?? 0;
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar votación'),
+        content: Text(
+          'Ya no se aceptarán votos y la votación no se puede reabrir. '
+          'Pasan al itinerario los lugares más votados, hasta $actividades; '
+          'si hay empate en el último puesto, un administrador elige.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cerrar votación'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+    if (await vm.cerrarVotacion()) {
+      mensajes.showSnackBar(const SnackBar(content: Text('Votación cerrada.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<DetallePlanViewModel>();
@@ -270,6 +301,34 @@ class TarjetaGestionAdmin extends StatelessWidget {
                   onTap: () => _prepararVotacion(context),
                 ),
               ),
+            ],
+            if (vm.puedeCerrarVotacion) ...[
+              const SizedBox(height: AppSpacing.gutterSm),
+              Material(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ListTile(
+                  shape: forma,
+                  enabled: !vm.cerrando,
+                  leading: vm.cerrando
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.lock_outline),
+                  title: const Text('Cerrar votación'),
+                  subtitle: const Text(
+                    'Cierre manual e irreversible; el plazo no la cierra solo',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _cerrarVotacion(context),
+                ),
+              ),
+              if (vm.errorCierre != null) ...[
+                const SizedBox(height: AppSpacing.gutterSm),
+                MensajeError(mensaje: vm.errorCierre!),
+              ],
             ],
             const SizedBox(height: AppSpacing.gutterSm),
             Material(

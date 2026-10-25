@@ -5,6 +5,7 @@ import 'package:app/features/salidas/data/plan_model.dart';
 import 'package:app/features/salidas/presentation/crear_plan_view_model.dart';
 import 'package:app/features/salidas/presentation/detalle_plan_view_model.dart';
 import 'package:app/features/votacion/data/candidato_model.dart';
+import 'package:app/features/votacion/data/resultado_votacion.dart';
 import 'package:app/features/votacion/presentation/preparar_votacion_view_model.dart';
 import 'package:app/features/votacion/presentation/votar_view_model.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -554,6 +555,174 @@ void main() {
       expect(vm.enVotacion, isTrue);
       expect(vm.misVotos, 1);
       expect(vm.maximoVotos, 2);
+    });
+  });
+
+  group('Cerrar votacion', () {
+    CandidatoModel candidato(String id, int total, {bool sel = false}) =>
+        CandidatoModel(
+          id: id,
+          planId: 'p1',
+          lugarId: 'l$id',
+          totalVotos: total,
+          seleccionado: sel,
+        );
+
+    // escenario de TIXJFG: 2 actividades, empate en el segundo puesto
+    void planConEmpate({RolPlan rol = RolPlan.administrador}) {
+      salidas.salidas.add(
+        salida(
+          planDePrueba(estado: EstadoPlan.enVotacion, maxActividades: 2),
+          rol: rol,
+        ),
+      );
+      votacion.candidatosPorPlan['p1'] = ['1', '2', '3', '4'];
+      votacion.votosAjenos.addAll({'c1': 2, 'c2': 1, 'c3': 1});
+    }
+
+    test('CandidatoModel lee total_votos y seleccionado tras el cierre', () {
+      final cerrado = CandidatoModel.fromJson({
+        'id': 'c1',
+        'plan_id': 'p1',
+        'lugar_id': 'l1',
+        'total_votos': 3,
+        'seleccionado': true,
+        'lugares': null,
+      });
+      final abierto = CandidatoModel.fromJson({
+        'id': 'c2',
+        'plan_id': 'p1',
+        'lugar_id': 'l2',
+        'total_votos': null,
+        'lugares': null,
+      });
+      expect(cerrado.totalVotos, 3);
+      expect(cerrado.seleccionado, isTrue);
+      expect(abierto.totalVotos, isNull);
+      expect(abierto.seleccionado, isFalse);
+    });
+
+    test('el resultado ordena por votos y detecta el empate del corte', () {
+      final resultado = ResultadoVotacion([
+        candidato('a', 0),
+        candidato('b', 1),
+        candidato('c', 2, sel: true),
+        candidato('d', 1),
+      ], 2);
+
+      expect(resultado.ordenados.map((c) => c.id), ['c', 'b', 'd', 'a']);
+      expect(resultado.empatePendiente, isTrue);
+      expect(resultado.cuposPendientes, 1);
+      expect(resultado.empatados.map((c) => c.id), ['b', 'd']);
+    });
+
+    test('sin empate cuando caben todos los votados o ya se resolvio', () {
+      final pocos = ResultadoVotacion([
+        candidato('a', 1, sel: true),
+        candidato('b', 0),
+      ], 3);
+      final resuelto = ResultadoVotacion([
+        candidato('a', 2, sel: true),
+        candidato('b', 1, sel: true),
+        candidato('c', 1),
+      ], 2);
+
+      expect(pocos.empatePendiente, isFalse);
+      expect(pocos.empatados, isEmpty);
+      expect(resuelto.empatePendiente, isFalse);
+    });
+
+    test('solo un administrador en votacion puede cerrar', () async {
+      planConEmpate(rol: RolPlan.participante);
+      final vm = DetallePlanViewModel(salidas, propuestas, votacion, 'p1');
+
+      await vm.cargar();
+
+      expect(vm.puedeCerrarVotacion, isFalse);
+      expect(await vm.cerrarVotacion(), isFalse);
+      expect(votacion.llamadas, isNot(contains('cerrar')));
+    });
+
+    test('cerrar muestra el resultado con el empate pendiente', () async {
+      planConEmpate();
+      final vm = DetallePlanViewModel(salidas, propuestas, votacion, 'p1');
+      await vm.cargar();
+      expect(vm.puedeCerrarVotacion, isTrue);
+
+      expect(await vm.cerrarVotacion(), isTrue);
+
+      expect(vm.votacionCerrada, isTrue);
+      expect(vm.puedeCerrarVotacion, isFalse);
+      final resultado = vm.resultado!;
+      expect(resultado.ordenados.map((c) => c.totalVotos), [2, 1, 1, 0]);
+      expect(resultado.seleccionados, 1);
+      expect(resultado.empatados.map((c) => c.id), ['c2', 'c3']);
+      expect(vm.puedeResolverEmpate, isTrue);
+    });
+
+    test('un cierre rechazado sin votos deja la votacion abierta', () async {
+      salidas.salidas.add(salida(planDePrueba(estado: EstadoPlan.enVotacion)));
+      votacion.candidatosPorPlan['p1'] = ['1', '2'];
+      final vm = DetallePlanViewModel(salidas, propuestas, votacion, 'p1');
+      await vm.cargar();
+
+      expect(await vm.cerrarVotacion(), isFalse);
+
+      expect(vm.errorCierre, MensajesError.sinVotos);
+      expect(vm.enVotacion, isTrue);
+      expect(vm.cerrando, isFalse);
+    });
+
+    test('resolver el empate completa la seleccion', () async {
+      planConEmpate();
+      final vm = DetallePlanViewModel(salidas, propuestas, votacion, 'p1');
+      await vm.cargar();
+      await vm.cerrarVotacion();
+
+      expect(await vm.resolverEmpate({'c3'}), isTrue);
+
+      expect(votacion.llamadas.last, 'empate:c3');
+      expect(vm.resultado!.empatePendiente, isFalse);
+      expect(vm.puedeResolverEmpate, isFalse);
+      expect(
+        vm.resultado!.ordenados.where((c) => c.seleccionado).map((c) => c.id),
+        ['c1', 'c3'],
+      );
+    });
+
+    test('si falla el desempate el empate sigue pendiente', () async {
+      planConEmpate();
+      final vm = DetallePlanViewModel(salidas, propuestas, votacion, 'p1');
+      await vm.cargar();
+      await vm.cerrarVotacion();
+      votacion.errorEmpate = const AppException(
+        MensajesError.sinEmpatePendiente,
+      );
+
+      expect(await vm.resolverEmpate({'c2'}), isFalse);
+
+      expect(vm.errorEmpate, MensajesError.sinEmpatePendiente);
+      expect(vm.resultado!.empatePendiente, isTrue);
+      expect(vm.resolviendo, isFalse);
+    });
+
+    test('un participante ve el resultado pero no resuelve', () async {
+      planConEmpate();
+      final admin = DetallePlanViewModel(salidas, propuestas, votacion, 'p1');
+      await admin.cargar();
+      await admin.cerrarVotacion();
+      final indice = salidas.salidas.indexWhere((s) => s.plan.id == 'p1');
+      salidas.salidas[indice] = salida(
+        salidas.salidas[indice].plan,
+        rol: RolPlan.participante,
+      );
+      final vm = DetallePlanViewModel(salidas, propuestas, votacion, 'p1');
+
+      await vm.cargar();
+
+      expect(vm.resultado!.empatePendiente, isTrue);
+      expect(vm.puedeResolverEmpate, isFalse);
+      expect(await vm.resolverEmpate({'c2'}), isFalse);
     });
   });
 }

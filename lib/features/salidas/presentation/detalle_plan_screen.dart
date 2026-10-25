@@ -14,6 +14,7 @@ import 'detalle_plan_view_model.dart';
 import 'widgets/cabecera_plan.dart';
 import 'widgets/tarjeta_candidatos.dart';
 import 'widgets/tarjeta_propuestas.dart';
+import 'widgets/tarjeta_resultado.dart';
 import 'widgets/tarjetas_grupo.dart';
 
 // detalle de la salida: fase, rol, presupuesto, codigo, grupo, limites y gestion
@@ -59,7 +60,9 @@ class _DetalleVista extends StatelessWidget {
           children: [
             _TarjetaResumen(salida: salida),
             const SizedBox(height: AppSpacing.md),
-            if (vm.muestraCandidatos)
+            if (vm.votacionCerrada)
+              const TarjetaResultado()
+            else if (vm.muestraCandidatos)
               const TarjetaCandidatos()
             else
               const TarjetaPropuestas(),

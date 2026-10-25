@@ -10,9 +10,12 @@ class CandidatoModel {
     this.categoria,
     this.zona,
     this.precioEstimadoPen,
+    this.totalVotos,
+    this.seleccionado = false,
   });
 
   // fila de candidatos con lugares(nombre, categoria, zona, precio_estimado_pen)
+  // y, tras el cierre, total_votos y seleccionado
   factory CandidatoModel.fromJson(Map<String, dynamic> json) {
     final lugar = json['lugares'] as Map<String, dynamic>?;
     return CandidatoModel(
@@ -27,6 +30,8 @@ class CandidatoModel {
           ? null
           : ZonaLugar.desdeValor(lugar!['zona'] as String),
       precioEstimadoPen: (lugar?['precio_estimado_pen'] as num?)?.toDouble(),
+      totalVotos: json['total_votos'] as int?,
+      seleccionado: json['seleccionado'] as bool? ?? false,
     );
   }
 
@@ -39,4 +44,8 @@ class CandidatoModel {
   final ZonaLugar? zona;
   // null cuando el precio es desconocido
   final double? precioEstimadoPen;
+  // instantanea guardada al cerrar la votacion; null mientras esta abierta
+  final int? totalVotos;
+  // pasa al itinerario (tras el cierre y el desempate)
+  final bool seleccionado;
 }

@@ -5,7 +5,7 @@ import '../../salidas/data/plan_model.dart';
 import '../../salidas/data/salidas_repository.dart';
 import 'candidato_model.dart';
 
-// lista final, limites, plazos y votos de la votacion (rf05, rf06, rf07, rf14, rf18)
+// lista final, limites, plazos, votos y cierre de la votacion (rf05-rf08, rf14, rf18)
 class VotacionRepository {
   VotacionRepository(this._cliente, this._salidas);
 
@@ -18,7 +18,7 @@ class VotacionRepository {
       final filas = await _cliente
           .from('candidatos')
           .select(
-            'id, plan_id, lugar_id, created_at, '
+            'id, plan_id, lugar_id, created_at, total_votos, seleccionado, '
             'lugares(nombre, categoria, zona, precio_estimado_pen)',
           )
           .eq('plan_id', planId)
@@ -144,6 +144,37 @@ class VotacionRepository {
     try {
       await _cliente.rpc(
         'guardar_votos',
+        params: {'p_plan_id': planId, 'p_candidato_ids': candidatoIds.toList()},
+      );
+    } catch (error) {
+      throw traducirError(error);
+    }
+  }
+
+  // irreversible; repetirla con la votacion ya cerrada devuelve el plan sin error
+  Future<PlanModel> cerrarVotacion(String planId) async {
+    try {
+      final fila = await _cliente.rpc(
+        'cerrar_votacion',
+        params: {'p_plan_id': planId},
+      );
+      final plan = PlanModel.fromJson(fila as Map<String, dynamic>);
+      // mis salidas muestra la nueva fase
+      _salidas.avisarCambio();
+      return plan;
+    } catch (error) {
+      throw traducirError(error);
+    }
+  }
+
+  // definitiva; repetirla con la misma eleccion ya guardada no falla
+  Future<void> resolverEmpate({
+    required String planId,
+    required Set<String> candidatoIds,
+  }) async {
+    try {
+      await _cliente.rpc(
+        'resolver_empate',
         params: {'p_plan_id': planId, 'p_candidato_ids': candidatoIds.toList()},
       );
     } catch (error) {
