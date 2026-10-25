@@ -33,7 +33,7 @@ class PropuestasRepository {
             'lugares(nombre, categoria), perfiles(nombre_visible)',
           )
           .eq('plan_id', planId)
-          .order('created_at');
+          .order('created_at', ascending: true);
       return filas.map(PropuestaModel.fromJson).toList();
     } catch (error) {
       throw traducirError(error);

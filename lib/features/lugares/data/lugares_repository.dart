@@ -18,7 +18,7 @@ class LugaresRepository {
       final filas = await _cliente
           .from('lugares')
           .select(_columnas)
-          .order('nombre');
+          .order('nombre', ascending: true);
       return filas.map(LugarModel.fromJson).toList();
     } catch (error) {
       throw traducirError(error);
