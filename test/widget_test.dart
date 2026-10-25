@@ -20,6 +20,7 @@ import 'package:app/features/salidas/presentation/detalle_plan_screen.dart';
 import 'package:app/features/salidas/presentation/mis_salidas_screen.dart';
 import 'package:app/features/votacion/data/votacion_repository.dart';
 import 'package:app/features/votacion/presentation/preparar_votacion_screen.dart';
+import 'package:app/features/votacion/presentation/votacion_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -373,6 +374,86 @@ void main() {
       scrollable: lista(),
     );
     expect(find.text('Preparar votación'), findsNothing);
+  });
+
+  testWidgets('un participante vota desde el detalle y ve los totales', (
+    tester,
+  ) async {
+    final salidas = FakeSalidasRepository()
+      ..salidas.add(
+        SalidaModel(
+          plan: planDePrueba(estado: EstadoPlan.enVotacion, maxSelecciones: 2),
+          miRol: RolPlan.participante,
+          esCreador: false,
+          totalParticipantes: 3,
+        ),
+      );
+    final votacion = FakeVotacionRepository(salidas)
+      ..candidatosPorPlan['p1'] = ['l1', 'l2', 'l3']
+      ..votosAjenos['cl2'] = 2;
+    Finder lista() => find
+        .descendant(
+          of: find.byType(ListView).hitTestable(),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await montarApp(
+      tester,
+      haySesion: true,
+      salidas: salidas,
+      votacion: votacion,
+    );
+
+    await tester.tap(find.text('Sábado en Yanahuara'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Tus votos (0/2)'),
+      200,
+      scrollable: lista(),
+    );
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Votar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Votar'));
+    await tester.pumpAndSettle();
+    expect(find.byType(VotacionScreen), findsOneWidget);
+    expect(find.textContaining('Totales no definitivos'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('2 votos'),
+      200,
+      scrollable: lista(),
+    );
+    expect(find.text('2 votos'), findsOneWidget);
+
+    for (final nombre in ['Lugar l2', 'Lugar l1']) {
+      await tester.ensureVisible(find.text(nombre));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(nombre));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.text('Guardar mis votos (2/2)'));
+    await tester.pumpAndSettle();
+
+    expect(votacion.misVotosPorPlan['p1'], {'cl1', 'cl2'});
+    expect(find.text('Tus votos se guardaron.'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('1 voto'),
+      200,
+      scrollable: lista(),
+    );
+    await tester.scrollUntilVisible(
+      find.text('3 votos'),
+      200,
+      scrollable: lista(),
+    );
+
+    await tester.tap(find.byType(BackButton).hitTestable().last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Tus votos (2/2)'),
+      200,
+      scrollable: lista(),
+    );
+    expect(find.text('Cambiar mis votos'), findsOneWidget);
   });
 
   testWidgets('el plazo de voto se elige con reloj de 12 horas', (

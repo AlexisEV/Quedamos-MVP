@@ -50,6 +50,14 @@ abstract final class MensajesError {
   static const plazoEnPasado = 'El plazo debe ser una fecha futura.';
   static const sinCandidatos =
       'Elige al menos un candidato para abrir la votación.';
+  static const votacionNoAbierta = 'La votación todavía no se abrió.';
+  static const votacionCerrada =
+      'La votación ya se cerró: tu selección no se guardó.';
+  static const seleccionVacia = 'Elige al menos un lugar para guardar tu voto.';
+  static const candidatoNoValido =
+      'Algún lugar ya no es candidato. Recarga la votación.';
+  static const limiteSeleccionesSuperado =
+      'Elegiste más lugares de los permitidos.';
 }
 
 // codigos que lanzan las rpc con raise exception; ver 04_DATABASE_SCHEMA.md seccion 6
@@ -73,6 +81,11 @@ const _mensajesRpc = {
   'lugar_no_propuesto': MensajesError.lugarNoPropuesto,
   'plazo_en_pasado': MensajesError.plazoEnPasado,
   'sin_candidatos': MensajesError.sinCandidatos,
+  'votacion_no_abierta': MensajesError.votacionNoAbierta,
+  'votacion_cerrada': MensajesError.votacionCerrada,
+  'seleccion_vacia': MensajesError.seleccionVacia,
+  'candidato_no_valido': MensajesError.candidatoNoValido,
+  'limite_selecciones_superado': MensajesError.limiteSeleccionesSuperado,
 };
 
 // traduce excepciones de supabase a mensajes en espanol

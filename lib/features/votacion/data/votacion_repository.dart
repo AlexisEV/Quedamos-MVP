@@ -5,7 +5,7 @@ import '../../salidas/data/plan_model.dart';
 import '../../salidas/data/salidas_repository.dart';
 import 'candidato_model.dart';
 
-// lista final, limites y plazos de la votacion (rf05, rf14, rf18)
+// lista final, limites, plazos y votos de la votacion (rf05, rf06, rf07, rf14, rf18)
 class VotacionRepository {
   VotacionRepository(this._cliente, this._salidas);
 
@@ -19,7 +19,7 @@ class VotacionRepository {
           .from('candidatos')
           .select(
             'id, plan_id, lugar_id, created_at, '
-            'lugares(nombre, categoria, precio_estimado_pen)',
+            'lugares(nombre, categoria, zona, precio_estimado_pen)',
           )
           .eq('plan_id', planId)
           .order('created_at', ascending: true);
@@ -101,6 +101,51 @@ class VotacionRepository {
       // mis salidas muestra la nueva fase
       _salidas.avisarCambio();
       return plan;
+    } catch (error) {
+      throw traducirError(error);
+    }
+  }
+
+  // candidatos que el usuario eligio en su ultima seleccion guardada (rls: solo los propios)
+  Future<Set<String>> obtenerMisVotos(String planId) async {
+    try {
+      final filas = await _cliente
+          .from('votos')
+          .select('candidato_id')
+          .eq('plan_id', planId);
+      return {for (final fila in filas) fila['candidato_id'] as String};
+    } catch (error) {
+      throw traducirError(error);
+    }
+  }
+
+  // total de votos por candidato sin identificar votantes (rb04)
+  Future<Map<String, int>> obtenerTotales(String planId) async {
+    try {
+      final filas = await _cliente.rpc(
+        'obtener_totales_votacion',
+        params: {'p_plan_id': planId},
+      );
+      return {
+        for (final fila in filas as List<dynamic>)
+          (fila as Map<String, dynamic>)['candidato_id'] as String:
+              fila['total'] as int,
+      };
+    } catch (error) {
+      throw traducirError(error);
+    }
+  }
+
+  // reemplaza la seleccion completa; repetirla con los mismos candidatos no duplica votos
+  Future<void> guardarVotos({
+    required String planId,
+    required Set<String> candidatoIds,
+  }) async {
+    try {
+      await _cliente.rpc(
+        'guardar_votos',
+        params: {'p_plan_id': planId, 'p_candidato_ids': candidatoIds.toList()},
+      );
     } catch (error) {
       throw traducirError(error);
     }

@@ -39,6 +39,8 @@ class DetallePlanViewModel extends ChangeNotifier {
   String? _errorAsignacion;
   List<PropuestaModel> _listaPropuestas = const [];
   List<CandidatoModel> _candidatos = const [];
+  // candidatos de la ultima seleccion guardada por el usuario
+  Set<String> _misVotos = const {};
   String? _retirando;
   String? _errorPropuestas;
   bool _desechado = false;
@@ -57,6 +59,15 @@ class DetallePlanViewModel extends ChangeNotifier {
   String? get retirando => _retirando;
   String? get errorPropuestas => _errorPropuestas;
   List<CandidatoModel> get candidatos => _candidatos;
+  int get misVotos => _misVotos.length;
+
+  bool get enVotacion => _salida?.plan.estado == EstadoPlan.enVotacion;
+
+  // nadie puede elegir mas lugares que candidatos existentes
+  int get maximoVotos {
+    final maximo = _salida?.plan.maxSelecciones ?? 0;
+    return maximo < _candidatos.length ? maximo : _candidatos.length;
+  }
 
   bool get recibePropuestas =>
       _salida?.plan.estado == EstadoPlan.recibiendoPropuestas;
@@ -115,6 +126,9 @@ class DetallePlanViewModel extends ChangeNotifier {
       _candidatos = salida != null && muestraCandidatos
           ? await _votacion.obtenerCandidatos(planId)
           : const [];
+      _misVotos = salida != null && enVotacion
+          ? await _votacion.obtenerMisVotos(planId)
+          : const {};
     } catch (error) {
       _error = _mensaje(error);
     } finally {

@@ -1,10 +1,12 @@
 import 'package:app/core/errors/app_exception.dart';
 import 'package:app/core/utils/formato.dart';
+import 'package:app/features/lugares/data/lugar_model.dart';
 import 'package:app/features/salidas/data/plan_model.dart';
 import 'package:app/features/salidas/presentation/crear_plan_view_model.dart';
 import 'package:app/features/salidas/presentation/detalle_plan_view_model.dart';
 import 'package:app/features/votacion/data/candidato_model.dart';
 import 'package:app/features/votacion/presentation/preparar_votacion_view_model.dart';
+import 'package:app/features/votacion/presentation/votar_view_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fakes.dart';
@@ -53,6 +55,7 @@ void main() {
         'lugares': {
           'nombre': 'BAWi',
           'categoria': 'cafes_y_postres',
+          'zona': 'yanahuara',
           'precio_estimado_pen': 22,
         },
       });
@@ -64,6 +67,7 @@ void main() {
       });
       expect(completo.nombreLugar, 'BAWi');
       expect(completo.precioEstimadoPen, 22);
+      expect(completo.zona, ZonaLugar.yanahuara);
       expect(oculto.nombreLugar, isNull);
       expect(oculto.categoria, isNull);
     });
@@ -362,6 +366,194 @@ void main() {
       await vm.cargar();
 
       expect(vm.puedePrepararVotacion, isFalse);
+    });
+  });
+
+  group('VotarViewModel', () {
+    VotarViewModel crearVotar([String planId = 'p1']) =>
+        VotarViewModel(salidas, votacion, planId, ahora: () => _ahora);
+
+    void planEnVotacion({
+      int maxSelecciones = 2,
+      List<String> lugares = const ['l1', 'l2', 'l3'],
+      DateTime? plazo,
+      RolPlan rol = RolPlan.participante,
+    }) {
+      salidas.salidas.add(
+        salida(
+          planDePrueba(
+            estado: EstadoPlan.enVotacion,
+            maxSelecciones: maxSelecciones,
+            fechaLimiteVoto: plazo,
+          ),
+          rol: rol,
+        ),
+      );
+      votacion.candidatosPorPlan['p1'] = lugares;
+    }
+
+    test('carga candidatos, totales y la seleccion guardada', () async {
+      planEnVotacion();
+      votacion.votosAjenos['cl1'] = 2;
+      votacion.misVotosPorPlan['p1'] = {'cl2'};
+      final vm = crearVotar();
+
+      await vm.cargar();
+
+      expect(vm.votacionAbierta, isTrue);
+      expect(vm.candidatos.map((c) => c.id), ['cl1', 'cl2', 'cl3']);
+      expect(vm.total('cl1'), 2);
+      expect(vm.total('cl2'), 1);
+      expect(vm.total('cl3'), 0);
+      expect(vm.seleccion, {'cl2'});
+      expect(vm.yaVoto, isTrue);
+      expect(vm.hayCambios, isFalse);
+      expect(vm.puedeGuardar, isFalse);
+    });
+
+    test('el contador respeta el maximo y no deja guardar vacio', () async {
+      planEnVotacion();
+      final vm = crearVotar();
+      await vm.cargar();
+
+      expect(vm.maximo, 2);
+      expect(vm.puedeGuardar, isFalse);
+      vm.alternar('cl1');
+      vm.alternar('cl2');
+      expect(vm.puedeAlternar('cl3'), isFalse);
+      vm.alternar('cl3');
+      expect(vm.seleccion, {'cl1', 'cl2'});
+      vm.alternar('cl1');
+      expect(vm.puedeAlternar('cl3'), isTrue);
+      vm.alternar('cl2');
+      expect(vm.seleccion, isEmpty);
+      expect(vm.puedeGuardar, isFalse);
+    });
+
+    test('el maximo no supera el numero de candidatos', () async {
+      planEnVotacion(maxSelecciones: 3, lugares: ['l1', 'l2']);
+      final vm = crearVotar();
+      await vm.cargar();
+
+      expect(vm.maximo, 2);
+    });
+
+    test('guardar confirma con el servidor y actualiza los totales', () async {
+      planEnVotacion();
+      votacion.votosAjenos['cl1'] = 1;
+      final vm = crearVotar();
+      await vm.cargar();
+      vm.alternar('cl1');
+      vm.alternar('cl3');
+
+      expect(await vm.guardar(), isTrue);
+
+      expect(votacion.misVotosPorPlan['p1'], {'cl1', 'cl3'});
+      expect(vm.total('cl1'), 2);
+      expect(vm.total('cl3'), 1);
+      expect(vm.yaVoto, isTrue);
+      expect(vm.hayCambios, isFalse);
+
+      // cambiar la seleccion cuenta solo la ultima version guardada
+      vm.alternar('cl3');
+      vm.alternar('cl2');
+      expect(await vm.guardar(), isTrue);
+      expect(vm.total('cl1'), 2);
+      expect(vm.total('cl2'), 1);
+      expect(vm.total('cl3'), 0);
+    });
+
+    test('si falla el guardado conserva la edicion y no marca voto', () async {
+      planEnVotacion();
+      final vm = crearVotar();
+      await vm.cargar();
+      vm.alternar('cl1');
+      votacion.errorGuardarVotos = const AppException(
+        MensajesError.sinConexion,
+      );
+
+      expect(await vm.guardar(), isFalse);
+
+      expect(vm.errorGuardado, MensajesError.sinConexion);
+      expect(vm.yaVoto, isFalse);
+      expect(vm.seleccion, {'cl1'});
+      expect(vm.total('cl1'), 0);
+
+      votacion.errorGuardarVotos = null;
+      expect(await vm.guardar(), isTrue);
+      expect(vm.errorGuardado, isNull);
+      expect(vm.total('cl1'), 1);
+    });
+
+    test('si fallan los totales tras guardar el voto queda guardado', () async {
+      planEnVotacion();
+      final vm = crearVotar();
+      await vm.cargar();
+      vm.alternar('cl1');
+      votacion.errorTotales = const AppException(MensajesError.sinConexion);
+
+      expect(await vm.guardar(), isTrue);
+
+      expect(vm.yaVoto, isTrue);
+      expect(vm.totalesDesactualizados, isTrue);
+      votacion.errorTotales = null;
+      await vm.cargar();
+      expect(vm.totalesDesactualizados, isFalse);
+      expect(vm.total('cl1'), 1);
+    });
+
+    test('recargar conserva una seleccion sin guardar', () async {
+      planEnVotacion();
+      votacion.misVotosPorPlan['p1'] = {'cl1'};
+      final vm = crearVotar();
+      await vm.cargar();
+      vm.alternar('cl1');
+      vm.alternar('cl2');
+
+      await vm.cargar();
+
+      expect(vm.seleccion, {'cl2'});
+      expect(vm.hayCambios, isTrue);
+    });
+
+    test('el plazo vencido no impide votar', () async {
+      planEnVotacion(plazo: _ahora.subtract(const Duration(hours: 1)));
+      final vm = crearVotar();
+      await vm.cargar();
+
+      expect(vm.plazoVencido, isTrue);
+      vm.alternar('cl1');
+      expect(await vm.guardar(), isTrue);
+    });
+
+    test('fuera de en_votacion no se puede votar', () async {
+      salidas.salidas.addAll([
+        salida(planDePrueba(id: 'p1')),
+        salida(planDePrueba(id: 'p2', estado: EstadoPlan.preparandoItinerario)),
+      ]);
+      votacion.candidatosPorPlan['p2'] = ['l1'];
+      final preparando = crearVotar('p1');
+      final cerrada = crearVotar('p2');
+
+      await Future.wait([preparando.cargar(), cerrada.cargar()]);
+
+      expect(preparando.enPreparacion, isTrue);
+      expect(preparando.candidatos, isEmpty);
+      expect(cerrada.votacionAbierta, isFalse);
+      expect(cerrada.puedeAlternar('cl1'), isFalse);
+      expect(cerrada.puedeGuardar, isFalse);
+    });
+
+    test('el detalle muestra cuantos votos guardo el usuario', () async {
+      planEnVotacion();
+      votacion.misVotosPorPlan['p1'] = {'cl1'};
+      final vm = DetallePlanViewModel(salidas, propuestas, votacion, 'p1');
+
+      await vm.cargar();
+
+      expect(vm.enVotacion, isTrue);
+      expect(vm.misVotos, 1);
+      expect(vm.maximoVotos, 2);
     });
   });
 }

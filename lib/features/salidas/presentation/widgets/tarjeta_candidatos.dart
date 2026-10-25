@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../app/router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/utils/formato.dart';
@@ -12,6 +14,13 @@ import '../detalle_plan_view_model.dart';
 // lista final fija desde que se abre la votacion (rb07, p05)
 class TarjetaCandidatos extends StatelessWidget {
   const TarjetaCandidatos({super.key});
+
+  // al volver se recarga el detalle: pudo cambiar la seleccion propia
+  Future<void> _votar(BuildContext context) async {
+    final vm = context.read<DetallePlanViewModel>();
+    await context.push(Rutas.votacion(vm.planId));
+    await vm.cargar();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +77,30 @@ class TarjetaCandidatos extends StatelessWidget {
             ],
             const SizedBox(height: AppSpacing.sm),
             for (final candidato in candidatos) _FilaCandidato(candidato),
+            if (vm.enVotacion) ...[
+              const Divider(height: AppSpacing.lg),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.touch_app_outlined,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Tus votos (${vm.misVotos}/${vm.maximoVotos})',
+                      style: textos.titleMedium,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              FilledButton.icon(
+                onPressed: () => _votar(context),
+                icon: const Icon(Icons.how_to_vote_outlined),
+                label: Text(vm.misVotos == 0 ? 'Votar' : 'Cambiar mis votos'),
+              ),
+            ],
           ],
         ),
       ),

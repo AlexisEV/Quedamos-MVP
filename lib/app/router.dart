@@ -9,7 +9,7 @@ import '../features/perfil/presentation/perfil_screen.dart';
 import '../features/salidas/presentation/crear_plan_screen.dart';
 import '../features/salidas/presentation/detalle_plan_screen.dart';
 import '../features/salidas/presentation/mis_salidas_screen.dart';
-import '../features/votacion/presentation/preparar_votacion_screen.dart';
+import '../features/votacion/presentation/votacion_screen.dart';
 import 'shell_screen.dart';
 
 abstract final class Rutas {
@@ -60,11 +60,11 @@ GoRouter crearRouter(SesionViewModel sesion) {
                     builder: (context, state) => DetallePlanScreen(
                       planId: state.pathParameters['planId']!,
                     ),
-                    // p05; por ahora solo la preparacion, votar llega despues
+                    // p05: preparar votacion o votar segun la fase del plan
                     routes: [
                       GoRoute(
                         path: 'votacion',
-                        builder: (context, state) => PrepararVotacionScreen(
+                        builder: (context, state) => VotacionScreen(
                           planId: state.pathParameters['planId']!,
                         ),
                       ),

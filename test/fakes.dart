@@ -412,6 +412,13 @@ class FakeVotacionRepository implements VotacionRepository {
   AppException? errorCandidatos;
   AppException? errorPlazos;
   AppException? errorAbrir;
+  // seleccion guardada del usuario actual por plan
+  final misVotosPorPlan = <String, Set<String>>{};
+  // votos de los demas por candidato; el total suma la seleccion propia
+  final votosAjenos = <String, int>{};
+  AppException? errorGuardarVotos;
+  AppException? errorTotales;
+  var guardadosVotos = 0;
 
   @override
   Future<List<CandidatoModel>> obtenerCandidatos(String planId) async {
@@ -542,5 +549,45 @@ class FakeVotacionRepository implements VotacionRepository {
     _reemplazar(nuevo);
     salidas.avisarCambio();
     return nuevo;
+  }
+
+  @override
+  Future<Set<String>> obtenerMisVotos(String planId) async => {
+    ...?misVotosPorPlan[planId],
+  };
+
+  @override
+  Future<Map<String, int>> obtenerTotales(String planId) async {
+    final falla = errorTotales;
+    if (falla != null) throw falla;
+    final mios = misVotosPorPlan[planId] ?? const <String>{};
+    return {
+      for (final candidato in await obtenerCandidatos(planId))
+        candidato.id:
+            (votosAjenos[candidato.id] ?? 0) +
+            (mios.contains(candidato.id) ? 1 : 0),
+    };
+  }
+
+  @override
+  Future<void> guardarVotos({
+    required String planId,
+    required Set<String> candidatoIds,
+  }) async {
+    llamadas.add('votos:${candidatoIds.join(',')}');
+    final falla = errorGuardarVotos;
+    if (falla != null) throw falla;
+    final plan = _plan(planId);
+    if (plan.estado != EstadoPlan.enVotacion) {
+      throw const AppException(MensajesError.votacionCerrada);
+    }
+    if (candidatoIds.isEmpty) {
+      throw const AppException(MensajesError.seleccionVacia);
+    }
+    if (candidatoIds.length > plan.maxSelecciones) {
+      throw const AppException(MensajesError.limiteSeleccionesSuperado);
+    }
+    misVotosPorPlan[planId] = {...candidatoIds};
+    guardadosVotos++;
   }
 }
