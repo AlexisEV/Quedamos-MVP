@@ -18,8 +18,12 @@ import 'package:app/features/salidas/data/plan_model.dart';
 import 'package:app/features/salidas/data/salidas_repository.dart';
 import 'package:app/features/salidas/presentation/detalle_plan_screen.dart';
 import 'package:app/features/salidas/presentation/mis_salidas_screen.dart';
+import 'package:app/features/votacion/data/votacion_repository.dart';
+import 'package:app/features/votacion/presentation/preparar_votacion_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'fakes.dart';
@@ -32,7 +36,9 @@ Future<StreamController<bool>> montarApp(
   FakeSalidasRepository? salidas,
   FakeLugaresRepository? lugares,
   FakePropuestasRepository? propuestas,
+  FakeVotacionRepository? votacion,
 }) async {
+  final repoSalidas = salidas ?? FakeSalidasRepository();
   final cambios = StreamController<bool>();
   final sesion = SesionViewModel(
     haySesionInicial: haySesion,
@@ -57,20 +63,28 @@ Future<StreamController<bool>> montarApp(
             ),
           ),
         ),
-        Provider<SalidasRepository>.value(
-          value: salidas ?? FakeSalidasRepository(),
-        ),
+        Provider<SalidasRepository>.value(value: repoSalidas),
         Provider<LugaresRepository>.value(
           value: lugares ?? FakeLugaresRepository(),
         ),
         Provider<PropuestasRepository>.value(
           value: propuestas ?? FakePropuestasRepository(),
         ),
+        Provider<VotacionRepository>.value(
+          value: votacion ?? FakeVotacionRepository(repoSalidas),
+        ),
         ChangeNotifierProvider<DestinoPropuesta>(
           create: (_) => DestinoPropuesta(),
         ),
       ],
-      child: MaterialApp.router(theme: AppTheme.claro, routerConfig: router),
+      // mismo idioma que la app para probar calendario y reloj en espanol
+      child: MaterialApp.router(
+        theme: AppTheme.claro,
+        routerConfig: router,
+        locale: const Locale('es'),
+        supportedLocales: const [Locale('es')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -290,5 +304,115 @@ void main() {
       find.text('No tienes salidas recibiendo propuestas'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('el admin prepara y abre la votacion con confirmacion', (
+    tester,
+  ) async {
+    final salidas = FakeSalidasRepository()
+      ..salidas.add(
+        SalidaModel(
+          plan: planDePrueba(),
+          miRol: RolPlan.administrador,
+          esCreador: true,
+          totalParticipantes: 2,
+        ),
+      );
+    final propuestas = FakePropuestasRepository()
+      ..propuestas.addAll([
+        propuestaDePrueba(id: 'pr1', lugarId: 'l1', nombreLugar: 'Café uno'),
+        propuestaDePrueba(id: 'pr2', lugarId: 'l2', nombreLugar: 'Bar dos'),
+      ]);
+    final votacion = FakeVotacionRepository(salidas);
+    // lista de la pantalla visible; el shell tiene otras ramas montadas
+    Finder lista() => find
+        .descendant(
+          of: find.byType(ListView).hitTestable(),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await montarApp(
+      tester,
+      haySesion: true,
+      salidas: salidas,
+      propuestas: propuestas,
+      votacion: votacion,
+    );
+
+    await tester.tap(find.text('Sábado en Yanahuara'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Preparar votación'),
+      200,
+      scrollable: lista(),
+    );
+    await tester.tap(find.text('Preparar votación'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PrepararVotacionScreen), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Bar dos'),
+      200,
+      scrollable: lista(),
+    );
+    await tester.ensureVisible(find.byType(Switch).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Switch).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Abrir votación'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('No se puede deshacer'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Abrir votación'));
+    await tester.pumpAndSettle();
+
+    expect(votacion.llamadas, ['candidatos:1', 'abrir']);
+    expect(find.byType(DetallePlanScreen), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Candidatos (1)'),
+      -200,
+      scrollable: lista(),
+    );
+    expect(find.text('Preparar votación'), findsNothing);
+  });
+
+  testWidgets('el plazo de voto se elige con reloj de 12 horas', (
+    tester,
+  ) async {
+    final salidas = FakeSalidasRepository()
+      ..salidas.add(
+        SalidaModel(
+          plan: planDePrueba(),
+          miRol: RolPlan.administrador,
+          esCreador: true,
+          totalParticipantes: 2,
+        ),
+      );
+    await montarApp(tester, haySesion: true, salidas: salidas);
+    final router = GoRouter.of(tester.element(find.byType(MisSalidasScreen)));
+    router.go('/salidas/p1/votacion');
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Definir'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView).hitTestable(),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.tap(find.text('Definir'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ACEPTAR'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hora límite (hora de Lima)'), findsOneWidget);
+    expect(find.text('a.m.'), findsOneWidget);
+    expect(find.text('p.m.'), findsOneWidget);
+    await tester.tap(find.text('ACEPTAR'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('20:00'), findsOneWidget);
   });
 }

@@ -9,6 +9,7 @@ import '../features/perfil/presentation/perfil_screen.dart';
 import '../features/salidas/presentation/crear_plan_screen.dart';
 import '../features/salidas/presentation/detalle_plan_screen.dart';
 import '../features/salidas/presentation/mis_salidas_screen.dart';
+import '../features/votacion/presentation/preparar_votacion_screen.dart';
 import 'shell_screen.dart';
 
 abstract final class Rutas {
@@ -16,6 +17,7 @@ abstract final class Rutas {
   static const salidas = '/salidas';
   static const crearPlan = '/salidas/crear';
   static String detallePlan(String planId) => '/salidas/$planId';
+  static String votacion(String planId) => '/salidas/$planId/votacion';
   static const explorar = '/explorar';
   static String fichaLugar(String lugarId) => '/explorar/$lugarId';
   static const notificaciones = '/notificaciones';
@@ -58,6 +60,15 @@ GoRouter crearRouter(SesionViewModel sesion) {
                     builder: (context, state) => DetallePlanScreen(
                       planId: state.pathParameters['planId']!,
                     ),
+                    // p05; por ahora solo la preparacion, votar llega despues
+                    routes: [
+                      GoRoute(
+                        path: 'votacion',
+                        builder: (context, state) => PrepararVotacionScreen(
+                          planId: state.pathParameters['planId']!,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

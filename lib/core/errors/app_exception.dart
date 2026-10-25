@@ -41,6 +41,15 @@ abstract final class MensajesError {
   static const lugarYaPropuesto = 'Ese lugar ya fue propuesto en esta salida.';
   static const limitePropuestasAlcanzado =
       'Llegaste a tu límite de propuestas en esta salida.';
+  static const faseNoPermitePreparacion =
+      'La votación ya se abrió: la lista y los límites están fijos.';
+  static const candidatosSuperanMaximo =
+      'Hay más candidatos seleccionados que el máximo permitido.';
+  static const lugarNoPropuesto =
+      'Algún candidato ya no está entre las propuestas. Recarga la lista.';
+  static const plazoEnPasado = 'El plazo debe ser una fecha futura.';
+  static const sinCandidatos =
+      'Elige al menos un candidato para abrir la votación.';
 }
 
 // codigos que lanzan las rpc con raise exception; ver 04_DATABASE_SCHEMA.md seccion 6
@@ -59,6 +68,11 @@ const _mensajesRpc = {
   'lugar_no_disponible': MensajesError.lugarNoDisponible,
   'lugar_ya_propuesto': MensajesError.lugarYaPropuesto,
   'limite_propuestas_alcanzado': MensajesError.limitePropuestasAlcanzado,
+  'fase_no_permite_preparacion': MensajesError.faseNoPermitePreparacion,
+  'candidatos_superan_maximo': MensajesError.candidatosSuperanMaximo,
+  'lugar_no_propuesto': MensajesError.lugarNoPropuesto,
+  'plazo_en_pasado': MensajesError.plazoEnPasado,
+  'sin_candidatos': MensajesError.sinCandidatos,
 };
 
 // traduce excepciones de supabase a mensajes en espanol

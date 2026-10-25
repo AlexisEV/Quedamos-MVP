@@ -41,6 +41,8 @@ class PlanModel {
     required this.codigoInvitacion,
     required this.creadoPor,
     required this.createdAt,
+    this.fechaLimiteVoto,
+    this.fechaLimiteAsistencia,
   });
 
   factory PlanModel.fromJson(Map<String, dynamic> json) {
@@ -57,6 +59,8 @@ class PlanModel {
       codigoInvitacion: (json['codigo_invitacion'] as String).trim(),
       creadoPor: json['creado_por'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
+      fechaLimiteVoto: _fechaOpcional(json['fecha_limite_voto']),
+      fechaLimiteAsistencia: _fechaOpcional(json['fecha_limite_asistencia']),
     );
   }
 
@@ -71,6 +75,12 @@ class PlanModel {
   final String codigoInvitacion;
   final String creadoPor;
   final DateTime createdAt;
+  // plazos opcionales en utc; null significa sin plazo ni recordatorio
+  final DateTime? fechaLimiteVoto;
+  final DateTime? fechaLimiteAsistencia;
+
+  static DateTime? _fechaOpcional(Object? valor) =>
+      valor == null ? null : DateTime.parse(valor as String).toUtc();
 }
 
 // plan visto por el usuario actual: su rol y el tamano del grupo

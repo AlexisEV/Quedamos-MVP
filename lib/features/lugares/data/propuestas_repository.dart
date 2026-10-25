@@ -30,7 +30,8 @@ class PropuestasRepository {
           .from('propuestas')
           .select(
             'id, plan_id, lugar_id, propuesto_por, created_at, '
-            'lugares(nombre, categoria), perfiles(nombre_visible)',
+            'lugares(nombre, categoria, precio_estimado_pen), '
+            'perfiles(nombre_visible)',
           )
           .eq('plan_id', planId)
           .order('created_at', ascending: true);

@@ -142,7 +142,12 @@ void main() {
     });
 
     test('carga las propuestas y cuenta las de cada persona', () async {
-      final vm = DetallePlanViewModel(salidas, propuestas, 'p1');
+      final vm = DetallePlanViewModel(
+        salidas,
+        propuestas,
+        FakeVotacionRepository(),
+        'p1',
+      );
       await vm.cargar();
 
       expect(vm.propuestas, hasLength(2));
@@ -153,9 +158,24 @@ void main() {
     test(
       'solo el autor o un administrador retiran, y solo al recibir',
       () async {
-        final participante = DetallePlanViewModel(salidas, propuestas, 'p1');
-        final admin = DetallePlanViewModel(salidas, propuestas, 'p2');
-        final votando = DetallePlanViewModel(salidas, propuestas, 'p3');
+        final participante = DetallePlanViewModel(
+          salidas,
+          propuestas,
+          FakeVotacionRepository(),
+          'p1',
+        );
+        final admin = DetallePlanViewModel(
+          salidas,
+          propuestas,
+          FakeVotacionRepository(),
+          'p2',
+        );
+        final votando = DetallePlanViewModel(
+          salidas,
+          propuestas,
+          FakeVotacionRepository(),
+          'p3',
+        );
         await Future.wait([
           participante.cargar(),
           admin.cargar(),
@@ -174,7 +194,12 @@ void main() {
     );
 
     test('retirar quita la propuesta solo si el servidor confirma', () async {
-      final vm = DetallePlanViewModel(salidas, propuestas, 'p1');
+      final vm = DetallePlanViewModel(
+        salidas,
+        propuestas,
+        FakeVotacionRepository(),
+        'p1',
+      );
       await vm.cargar();
       final propia = vm.propuestas.firstWhere((p) => p.lugarId == 'a');
 
@@ -193,7 +218,12 @@ void main() {
 
     test('se recarga cuando se propone desde la ficha', () async {
       propuestas.salidas.add(salida(planDePrueba(id: 'p1')));
-      final vm = DetallePlanViewModel(salidas, propuestas, 'p1');
+      final vm = DetallePlanViewModel(
+        salidas,
+        propuestas,
+        FakeVotacionRepository(),
+        'p1',
+      );
       await vm.cargar();
 
       await propuestas.proponer(planId: 'p1', lugarId: 'c');

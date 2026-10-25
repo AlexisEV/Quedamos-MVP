@@ -138,6 +138,7 @@ void main() {
       final encontrado = DetallePlanViewModel(
         repositorio,
         FakePropuestasRepository(),
+        FakeVotacionRepository(),
         'p1',
       );
       await encontrado.cargar();
@@ -147,6 +148,7 @@ void main() {
       final ajeno = DetallePlanViewModel(
         repositorio,
         FakePropuestasRepository(),
+        FakeVotacionRepository(),
         'otro',
       );
       await ajeno.cargar();
@@ -169,6 +171,7 @@ void main() {
       final vm = DetallePlanViewModel(
         repositorio,
         FakePropuestasRepository(),
+        FakeVotacionRepository(),
         'p1',
       );
 
@@ -192,16 +195,19 @@ void main() {
       final participante = DetallePlanViewModel(
         repositorio,
         FakePropuestasRepository(),
+        FakeVotacionRepository(),
         'p1',
       );
       final admin = DetallePlanViewModel(
         repositorio,
         FakePropuestasRepository(),
+        FakeVotacionRepository(),
         'p2',
       );
       final cancelado = DetallePlanViewModel(
         repositorio,
         FakePropuestasRepository(),
+        FakeVotacionRepository(),
         'p3',
       );
 
@@ -232,6 +238,7 @@ void main() {
       final vm = DetallePlanViewModel(
         repositorio,
         FakePropuestasRepository(),
+        FakeVotacionRepository(),
         'p1',
       );
       await vm.cargar();
@@ -266,6 +273,7 @@ void main() {
         final vm = DetallePlanViewModel(
           repositorio,
           FakePropuestasRepository(),
+          FakeVotacionRepository(),
           'p1',
         );
         await vm.cargar();

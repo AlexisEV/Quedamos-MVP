@@ -142,5 +142,19 @@ abstract final class AppTheme {
         borderSide: const BorderSide(color: AppColors.error),
       ),
     ),
+    // el selector a.m./p.m. usa el mismo verde que la hora elegida, no el terciario ambar
+    timePickerTheme: TimePickerThemeData(
+      dayPeriodColor: WidgetStateColor.resolveWith(
+        (estados) => estados.contains(WidgetState.selected)
+            ? AppColors.primaryContainer
+            : Colors.transparent,
+      ),
+      dayPeriodTextColor: WidgetStateColor.resolveWith(
+        (estados) => estados.contains(WidgetState.selected)
+            ? AppColors.onPrimaryContainer
+            : AppColors.textSecondary,
+      ),
+      dayPeriodBorderSide: const BorderSide(color: AppColors.outline),
+    ),
   );
 }

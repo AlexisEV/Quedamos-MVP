@@ -51,6 +51,9 @@ class SalidasRepository {
   // avisa que la lista de salidas del usuario cambio, para recargarla
   Stream<void> get cambios => _cambios.stream;
 
+  // otros repositorios avisan cuando una rpc cambia la fase de un plan
+  void avisarCambio() => _cambios.add(null);
+
   // id del usuario con sesion, para marcar su fila en la lista del grupo
   String? get usuarioActualId => _cliente.auth.currentUser?.id;
 

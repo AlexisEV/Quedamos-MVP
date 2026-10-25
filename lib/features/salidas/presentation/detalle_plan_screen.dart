@@ -8,9 +8,11 @@ import '../../../core/utils/formato.dart';
 import '../../../core/widgets/estado_vacio.dart';
 import '../data/plan_model.dart';
 import '../../lugares/data/propuestas_repository.dart';
+import '../../votacion/data/votacion_repository.dart';
 import '../data/salidas_repository.dart';
 import 'detalle_plan_view_model.dart';
 import 'widgets/cabecera_plan.dart';
+import 'widgets/tarjeta_candidatos.dart';
 import 'widgets/tarjeta_propuestas.dart';
 import 'widgets/tarjetas_grupo.dart';
 
@@ -26,6 +28,7 @@ class DetallePlanScreen extends StatelessWidget {
       create: (context) => DetallePlanViewModel(
         context.read<SalidasRepository>(),
         context.read<PropuestasRepository>(),
+        context.read<VotacionRepository>(),
         planId,
       )..cargar(),
       child: const _DetalleVista(),
@@ -56,7 +59,10 @@ class _DetalleVista extends StatelessWidget {
           children: [
             _TarjetaResumen(salida: salida),
             const SizedBox(height: AppSpacing.md),
-            const TarjetaPropuestas(),
+            if (vm.muestraCandidatos)
+              const TarjetaCandidatos()
+            else
+              const TarjetaPropuestas(),
             const SizedBox(height: AppSpacing.md),
             const TarjetaParticipantes(),
             const SizedBox(height: AppSpacing.md),
@@ -282,6 +288,17 @@ class _TarjetaLimites extends StatelessWidget {
                 Text('Límites del plan', style: textos.titleLarge),
               ],
             ),
+            // los limites se ajustan en preparar votacion y quedan fijos al abrirla
+            if (plan.estado != EstadoPlan.recibiendoPropuestas &&
+                plan.estado != EstadoPlan.cancelado) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Fijos desde que se abrió la votación.',
+                style: textos.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
             for (final (etiqueta, valor) in filas)
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.gutterSm),

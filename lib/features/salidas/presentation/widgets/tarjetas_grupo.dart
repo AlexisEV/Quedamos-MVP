@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../app/router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/widgets/mensaje_error.dart';
@@ -175,7 +177,7 @@ class _InsigniaTu extends StatelessWidget {
   }
 }
 
-// acciones de administrador; por ahora solo nombrar administradores (rf17)
+// acciones de administrador: preparar la votacion (rf05, rf18) y nombrar administradores (rf17)
 class TarjetaGestionAdmin extends StatelessWidget {
   const TarjetaGestionAdmin({super.key});
 
@@ -221,11 +223,21 @@ class TarjetaGestionAdmin extends StatelessWidget {
     }
   }
 
+  // al volver se recarga el detalle: pudieron cambiar limites, candidatos o fase
+  Future<void> _prepararVotacion(BuildContext context) async {
+    final vm = context.read<DetallePlanViewModel>();
+    await context.push(Rutas.votacion(vm.planId));
+    await vm.cargar();
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<DetallePlanViewModel>();
     final textos = Theme.of(context).textTheme;
     final hayNombrables = vm.nombrables.isNotEmpty;
+    final forma = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -242,14 +254,29 @@ class TarjetaGestionAdmin extends StatelessWidget {
                 Text('Gestión de administrador', style: textos.titleLarge),
               ],
             ),
+            if (vm.puedePrepararVotacion) ...[
+              const SizedBox(height: AppSpacing.gutterSm),
+              Material(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ListTile(
+                  shape: forma,
+                  leading: const Icon(Icons.how_to_vote_outlined),
+                  title: const Text('Preparar votación'),
+                  subtitle: const Text(
+                    'Candidatos, límites, plazo y apertura de la votación',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _prepararVotacion(context),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.gutterSm),
             Material(
               color: AppColors.surfaceContainerLow,
               borderRadius: BorderRadius.circular(AppRadius.md),
               child: ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
+                shape: forma,
                 enabled: hayNombrables && !vm.asignando,
                 leading: vm.asignando
                     ? const SizedBox(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +10,7 @@ import '../features/lugares/data/propuestas_repository.dart';
 import '../features/lugares/presentation/destino_propuesta.dart';
 import '../features/perfil/data/perfil_repository.dart';
 import '../features/salidas/data/salidas_repository.dart';
+import '../features/votacion/data/votacion_repository.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 
@@ -20,6 +22,7 @@ class QuedamosApp extends StatefulWidget {
     required this.salidasRepository,
     required this.lugaresRepository,
     required this.propuestasRepository,
+    required this.votacionRepository,
   });
 
   final AuthRepository authRepository;
@@ -27,6 +30,7 @@ class QuedamosApp extends StatefulWidget {
   final SalidasRepository salidasRepository;
   final LugaresRepository lugaresRepository;
   final PropuestasRepository propuestasRepository;
+  final VotacionRepository votacionRepository;
 
   @override
   State<QuedamosApp> createState() => _QuedamosAppState();
@@ -74,6 +78,7 @@ class _QuedamosAppState extends State<QuedamosApp> {
         Provider<PropuestasRepository>.value(
           value: widget.propuestasRepository,
         ),
+        Provider<VotacionRepository>.value(value: widget.votacionRepository),
         ChangeNotifierProvider<DestinoPropuesta>.value(value: _destino),
         ChangeNotifierProvider<SesionViewModel>.value(value: _sesion),
       ],
@@ -82,6 +87,10 @@ class _QuedamosAppState extends State<QuedamosApp> {
         theme: AppTheme.claro,
         routerConfig: _router,
         debugShowCheckedModeBanner: false,
+        // calendario, reloj y textos de material en espanol
+        locale: const Locale('es'),
+        supportedLocales: const [Locale('es')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
       ),
     );
   }

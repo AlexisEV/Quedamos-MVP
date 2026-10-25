@@ -11,6 +11,8 @@ import 'package:app/features/perfil/data/perfil_repository.dart';
 import 'package:app/features/salidas/data/participante_model.dart';
 import 'package:app/features/salidas/data/plan_model.dart';
 import 'package:app/features/salidas/data/salidas_repository.dart';
+import 'package:app/features/votacion/data/candidato_model.dart';
+import 'package:app/features/votacion/data/votacion_repository.dart';
 
 // repositorio de auth en memoria; error define la falla de la siguiente llamada
 class FakeAuthRepository implements AuthRepository {
@@ -75,6 +77,11 @@ PlanModel planDePrueba({
   String nombre = 'Sábado en Yanahuara',
   EstadoPlan estado = EstadoPlan.recibiendoPropuestas,
   DateTime? createdAt,
+  int maxCandidatos = 6,
+  int maxSelecciones = 3,
+  int maxActividades = 3,
+  DateTime? fechaLimiteVoto,
+  DateTime? fechaLimiteAsistencia,
 }) {
   return PlanModel(
     id: id,
@@ -82,12 +89,14 @@ PlanModel planDePrueba({
     estado: estado,
     presupuestoSoles: 70,
     maxPropuestasPorPersona: 3,
-    maxCandidatos: 6,
-    maxSelecciones: 3,
-    maxActividades: 3,
+    maxCandidatos: maxCandidatos,
+    maxSelecciones: maxSelecciones,
+    maxActividades: maxActividades,
     codigoInvitacion: 'AQP48X',
     creadoPor: 'u1',
     createdAt: createdAt ?? DateTime.utc(2026, 10, 22),
+    fechaLimiteVoto: fechaLimiteVoto,
+    fechaLimiteAsistencia: fechaLimiteAsistencia,
   );
 }
 
@@ -110,6 +119,9 @@ class FakeSalidasRepository implements SalidasRepository {
 
   @override
   Stream<void> get cambios => _cambios.stream;
+
+  @override
+  void avisarCambio() => _cambios.add(null);
 
   @override
   Future<List<SalidaModel>> obtenerMisSalidas() async {
@@ -384,4 +396,151 @@ PropuestaModel propuestaDePrueba({
     nombreLugar: nombreLugar,
     categoria: nombreLugar == null ? null : CategoriaLugar.restaurantes,
   );
+}
+
+// lista final y limites en memoria con las reglas de las rpc de preparar votacion;
+// los planes se leen y actualizan en el repositorio de salidas
+class FakeVotacionRepository implements VotacionRepository {
+  FakeVotacionRepository([FakeSalidasRepository? salidas])
+    : salidas = salidas ?? FakeSalidasRepository();
+
+  final FakeSalidasRepository salidas;
+  final candidatosPorPlan = <String, List<String>>{};
+  // orden de las llamadas para verificar la secuencia de guardado
+  final llamadas = <String>[];
+  AppException? errorLimites;
+  AppException? errorCandidatos;
+  AppException? errorPlazos;
+  AppException? errorAbrir;
+
+  @override
+  Future<List<CandidatoModel>> obtenerCandidatos(String planId) async {
+    return [
+      for (final lugarId in candidatosPorPlan[planId] ?? const <String>[])
+        CandidatoModel(
+          id: 'c$lugarId',
+          planId: planId,
+          lugarId: lugarId,
+          nombreLugar: 'Lugar $lugarId',
+        ),
+    ];
+  }
+
+  PlanModel _plan(String planId) =>
+      salidas.salidas.firstWhere((s) => s.plan.id == planId).plan;
+
+  void _reemplazar(PlanModel plan) {
+    final indice = salidas.salidas.indexWhere((s) => s.plan.id == plan.id);
+    final actual = salidas.salidas[indice];
+    salidas.salidas[indice] = SalidaModel(
+      plan: plan,
+      miRol: actual.miRol,
+      esCreador: actual.esCreador,
+      totalParticipantes: actual.totalParticipantes,
+    );
+  }
+
+  PlanModel _copiar(
+    PlanModel plan, {
+    EstadoPlan? estado,
+    int? maxCandidatos,
+    int? maxSelecciones,
+    int? maxActividades,
+    DateTime? fechaLimiteVoto,
+    bool cambiarPlazo = false,
+  }) {
+    return planDePrueba(
+      id: plan.id,
+      nombre: plan.nombre,
+      estado: estado ?? plan.estado,
+      createdAt: plan.createdAt,
+      maxCandidatos: maxCandidatos ?? plan.maxCandidatos,
+      maxSelecciones: maxSelecciones ?? plan.maxSelecciones,
+      maxActividades: maxActividades ?? plan.maxActividades,
+      fechaLimiteVoto: cambiarPlazo ? fechaLimiteVoto : plan.fechaLimiteVoto,
+      fechaLimiteAsistencia: plan.fechaLimiteAsistencia,
+    );
+  }
+
+  void _exigirPreparacion(PlanModel plan) {
+    if (plan.estado != EstadoPlan.recibiendoPropuestas) {
+      throw const AppException(MensajesError.faseNoPermitePreparacion);
+    }
+  }
+
+  @override
+  Future<PlanModel> actualizarLimites({
+    required String planId,
+    required int maxCandidatos,
+    required int maxSelecciones,
+    required int maxActividades,
+  }) async {
+    llamadas.add('limites:$maxCandidatos/$maxSelecciones/$maxActividades');
+    final falla = errorLimites;
+    if (falla != null) throw falla;
+    final plan = _plan(planId);
+    _exigirPreparacion(plan);
+    if ((candidatosPorPlan[planId]?.length ?? 0) > maxCandidatos) {
+      throw const AppException(MensajesError.candidatosSuperanMaximo);
+    }
+    final nuevo = _copiar(
+      plan,
+      maxCandidatos: maxCandidatos,
+      maxSelecciones: maxSelecciones,
+      maxActividades: maxActividades,
+    );
+    _reemplazar(nuevo);
+    return nuevo;
+  }
+
+  @override
+  Future<void> definirCandidatos({
+    required String planId,
+    required Set<String> lugarIds,
+  }) async {
+    llamadas.add('candidatos:${lugarIds.length}');
+    final falla = errorCandidatos;
+    if (falla != null) throw falla;
+    final plan = _plan(planId);
+    _exigirPreparacion(plan);
+    if (lugarIds.length > plan.maxCandidatos) {
+      throw const AppException(MensajesError.candidatosSuperanMaximo);
+    }
+    candidatosPorPlan[planId] = lugarIds.toList();
+  }
+
+  @override
+  Future<PlanModel> definirPlazos({
+    required String planId,
+    required DateTime? fechaLimiteVoto,
+    required DateTime? fechaLimiteAsistencia,
+  }) async {
+    llamadas.add('plazos');
+    final falla = errorPlazos;
+    if (falla != null) throw falla;
+    final nuevo = _copiar(
+      _plan(planId),
+      fechaLimiteVoto: fechaLimiteVoto,
+      cambiarPlazo: true,
+    );
+    _reemplazar(nuevo);
+    return nuevo;
+  }
+
+  @override
+  Future<PlanModel> abrirVotacion(String planId) async {
+    llamadas.add('abrir');
+    final falla = errorAbrir;
+    if (falla != null) throw falla;
+    final plan = _plan(planId);
+    if (plan.estado == EstadoPlan.enVotacion) return plan;
+    _exigirPreparacion(plan);
+    if ((candidatosPorPlan[planId] ?? const []).isEmpty) {
+      throw const AppException(MensajesError.sinCandidatos);
+    }
+    final nuevo = _copiar(plan, estado: EstadoPlan.enVotacion);
+    _reemplazar(nuevo);
+    salidas.avisarCambio();
+    return nuevo;
+  }
 }

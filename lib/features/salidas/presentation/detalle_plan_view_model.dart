@@ -5,12 +5,19 @@ import 'package:flutter/foundation.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../lugares/data/propuesta_model.dart';
 import '../../lugares/data/propuestas_repository.dart';
+import '../../votacion/data/candidato_model.dart';
+import '../../votacion/data/votacion_repository.dart';
 import '../data/participante_model.dart';
 import '../data/plan_model.dart';
 import '../data/salidas_repository.dart';
 
 class DetallePlanViewModel extends ChangeNotifier {
-  DetallePlanViewModel(this._repositorio, this._propuestas, this.planId) {
+  DetallePlanViewModel(
+    this._repositorio,
+    this._propuestas,
+    this._votacion,
+    this.planId,
+  ) {
     // las propuestas pueden cambiar desde la ficha de un lugar en otra pestana
     _suscripcion = _propuestas.cambios
         .where((id) => id == planId)
@@ -19,6 +26,7 @@ class DetallePlanViewModel extends ChangeNotifier {
 
   final SalidasRepository _repositorio;
   final PropuestasRepository _propuestas;
+  final VotacionRepository _votacion;
   final String planId;
   late final StreamSubscription<String> _suscripcion;
 
@@ -30,6 +38,7 @@ class DetallePlanViewModel extends ChangeNotifier {
   bool _asignando = false;
   String? _errorAsignacion;
   List<PropuestaModel> _listaPropuestas = const [];
+  List<CandidatoModel> _candidatos = const [];
   String? _retirando;
   String? _errorPropuestas;
   bool _desechado = false;
@@ -47,9 +56,22 @@ class DetallePlanViewModel extends ChangeNotifier {
   // id de la propuesta que se esta retirando
   String? get retirando => _retirando;
   String? get errorPropuestas => _errorPropuestas;
+  List<CandidatoModel> get candidatos => _candidatos;
 
   bool get recibePropuestas =>
       _salida?.plan.estado == EstadoPlan.recibiendoPropuestas;
+
+  // desde que se abre la votacion la lista final queda fija y reemplaza a las propuestas
+  bool get muestraCandidatos => switch (_salida?.plan.estado) {
+    EstadoPlan.enVotacion ||
+    EstadoPlan.preparandoItinerario ||
+    EstadoPlan.confirmado => true,
+    _ => false,
+  };
+
+  // solo administradores mientras se reciben propuestas (rf05, rf18)
+  bool get puedePrepararVotacion =>
+      recibePropuestas && (_salida?.esAdministrador ?? false);
 
   int propuestasDe(String perfilId) =>
       _listaPropuestas.where((p) => p.propuestoPor == perfilId).length;
@@ -90,6 +112,9 @@ class DetallePlanViewModel extends ChangeNotifier {
       _listaPropuestas = salida == null
           ? const []
           : await _propuestas.obtenerPropuestas(planId);
+      _candidatos = salida != null && muestraCandidatos
+          ? await _votacion.obtenerCandidatos(planId)
+          : const [];
     } catch (error) {
       _error = _mensaje(error);
     } finally {

@@ -12,9 +12,10 @@ class PropuestaModel {
     required this.createdAt,
     this.nombreLugar,
     this.categoria,
+    this.precioEstimadoPen,
   });
 
-  // fila de propuestas con lugares(nombre, categoria) y perfiles(nombre_visible)
+  // fila de propuestas con lugares(nombre, categoria, precio_estimado_pen) y perfiles(nombre_visible)
   factory PropuestaModel.fromJson(Map<String, dynamic> json) {
     final lugar = json['lugares'] as Map<String, dynamic>?;
     final perfil = json['perfiles'] as Map<String, dynamic>?;
@@ -29,6 +30,7 @@ class PropuestaModel {
       categoria: lugar == null
           ? null
           : CategoriaLugar.desdeValor(lugar['categoria'] as String),
+      precioEstimadoPen: (lugar?['precio_estimado_pen'] as num?)?.toDouble(),
     );
   }
 
@@ -41,6 +43,8 @@ class PropuestaModel {
   // null cuando el lugar dejo de estar publicado (rls no lo devuelve)
   final String? nombreLugar;
   final CategoriaLugar? categoria;
+  // null cuando el precio es desconocido
+  final double? precioEstimadoPen;
 }
 
 // plan del usuario que recibe propuestas, con su cupo y los lugares ya propuestos
