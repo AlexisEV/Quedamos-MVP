@@ -247,6 +247,31 @@ class FakeLugaresRepository implements LugaresRepository {
     return List.of(lugares)..sort((a, b) => a.nombre.compareTo(b.nombre));
   }
 
+  // mismas reglas que la consulta rf13: precio conocido, orden por precio y nombre
+  @override
+  Future<List<LugarModel>> obtenerRecomendaciones({
+    required ZonaLugar zona,
+    required CategoriaLugar categoria,
+    required double presupuestoSoles,
+  }) async {
+    final falla = error;
+    if (falla != null) throw falla;
+    final filtrados =
+        lugares.where((l) {
+          final precio = l.precioEstimadoPen;
+          return l.zona == zona &&
+              l.categoria == categoria &&
+              precio != null &&
+              precio <= presupuestoSoles;
+        }).toList()..sort((a, b) {
+          final porPrecio = a.precioEstimadoPen!.compareTo(
+            b.precioEstimadoPen!,
+          );
+          return porPrecio != 0 ? porPrecio : a.nombre.compareTo(b.nombre);
+        });
+    return filtrados.take(LugaresRepository.maxRecomendaciones).toList();
+  }
+
   @override
   Future<LugarModel?> obtenerLugar(String lugarId) async {
     final falla = error;

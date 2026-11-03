@@ -8,27 +8,58 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../core/widgets/estado_vacio.dart';
 import '../data/lugar_model.dart';
 import '../data/lugares_repository.dart';
+import '../data/propuestas_repository.dart';
 import 'destino_propuesta.dart';
 import 'explorar_view_model.dart';
+import 'recomendaciones_view_model.dart';
+import 'widgets/seccion_recomendaciones.dart';
 import 'widgets/selector_destino.dart';
 import 'widgets/tarjeta_lugar.dart';
 
-// pestana explorar: catalogo de lugares de arequipa (p03)
+// pestana explorar: catalogo de lugares de arequipa (p03) y recomendaciones (p09)
 class ExplorarScreen extends StatelessWidget {
   const ExplorarScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) =>
-          ExplorarViewModel(context.read<LugaresRepository>())..cargar(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) =>
+              ExplorarViewModel(context.read<LugaresRepository>())..cargar(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => RecomendacionesViewModel(
+            context.read<LugaresRepository>(),
+            context.read<PropuestasRepository>(),
+            context.read<DestinoPropuesta>(),
+          ),
+        ),
+      ],
       child: const _ExplorarVista(),
     );
   }
 }
 
-class _ExplorarVista extends StatelessWidget {
+class _ExplorarVista extends StatefulWidget {
   const _ExplorarVista();
+
+  @override
+  State<_ExplorarVista> createState() => _ExplorarVistaState();
+}
+
+class _ExplorarVistaState extends State<_ExplorarVista> {
+  bool _verRecomendaciones = false;
+
+  // en recomendaciones solo se vuelve a consultar si ya hubo un resultado
+  Future<void> _recargar() {
+    if (!_verRecomendaciones) return context.read<ExplorarViewModel>().cargar();
+    final recomendaciones = context.read<RecomendacionesViewModel>();
+    if (recomendaciones.consultado || recomendaciones.error != null) {
+      return recomendaciones.consultar();
+    }
+    return Future.value();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +68,7 @@ class _ExplorarVista extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: vm.cargar,
+          onRefresh: _recargar,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(AppSpacing.margin),
@@ -50,9 +81,23 @@ class _ExplorarVista extends StatelessWidget {
                   color: AppColors.textSecondary,
                 ),
               ),
+              const SizedBox(height: AppSpacing.md),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Catálogo')),
+                  ButtonSegment(value: true, label: Text('Recomendaciones')),
+                ],
+                selected: {_verRecomendaciones},
+                showSelectedIcon: false,
+                onSelectionChanged: (seleccion) =>
+                    setState(() => _verRecomendaciones = seleccion.first),
+              ),
               const SizedBox(height: AppSpacing.lg),
               const _AvisoDestino(),
-              ..._contenido(context, vm),
+              if (_verRecomendaciones)
+                ...seccionRecomendaciones(context)
+              else
+                ..._contenido(context, vm),
             ],
           ),
         ),

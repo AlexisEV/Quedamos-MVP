@@ -7,10 +7,17 @@ import 'estilo_lugar.dart';
 
 // tarjeta del catalogo con precio orientativo, zona, categoria y horario (p03)
 class TarjetaLugar extends StatelessWidget {
-  const TarjetaLugar({super.key, required this.lugar, required this.onTap});
+  const TarjetaLugar({
+    super.key,
+    required this.lugar,
+    required this.onTap,
+    this.yaPropuesto = false,
+  });
 
   final LugarModel lugar;
   final VoidCallback onTap;
+  // el lugar ya esta propuesto en el plan destino elegido (p09)
+  final bool yaPropuesto;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +56,25 @@ class TarjetaLugar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(lugar.nombre, style: textos.titleMedium),
+                  if (yaPropuesto) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle_outline,
+                          size: 16,
+                          color: AppColors.tertiary,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          'Ya propuesto en este plan',
+                          style: textos.labelMedium?.copyWith(
+                            color: AppColors.tertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     TextosLugar.precioPorPersona(lugar.precioEstimadoPen),
