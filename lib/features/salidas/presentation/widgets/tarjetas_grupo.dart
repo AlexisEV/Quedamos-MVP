@@ -230,6 +230,13 @@ class TarjetaGestionAdmin extends StatelessWidget {
     await vm.cargar();
   }
 
+  // al volver se recarga el detalle: pudieron cambiar orden, horarios o fase
+  Future<void> _revisarItinerario(BuildContext context) async {
+    final vm = context.read<DetallePlanViewModel>();
+    await context.push(Rutas.itinerario(vm.planId));
+    await vm.cargar();
+  }
+
   Future<void> _cerrarVotacion(BuildContext context) async {
     final vm = context.read<DetallePlanViewModel>();
     final mensajes = ScaffoldMessenger.of(context);
@@ -329,6 +336,26 @@ class TarjetaGestionAdmin extends StatelessWidget {
                 const SizedBox(height: AppSpacing.gutterSm),
                 MensajeError(mensaje: vm.errorCierre!),
               ],
+            ],
+            if (vm.puedeRevisarItinerario) ...[
+              const SizedBox(height: AppSpacing.gutterSm),
+              Material(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ListTile(
+                  shape: forma,
+                  enabled: !vm.itinerarioBloqueadoPorEmpate,
+                  leading: const Icon(Icons.route_outlined),
+                  title: const Text('Revisar itinerario'),
+                  subtitle: Text(
+                    vm.itinerarioBloqueadoPorEmpate
+                        ? 'Primero resuelve el empate del último puesto'
+                        : 'Orden, fecha y hora, presupuesto y confirmación',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _revisarItinerario(context),
+                ),
+              ),
             ],
             const SizedBox(height: AppSpacing.gutterSm),
             Material(

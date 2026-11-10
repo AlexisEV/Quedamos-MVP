@@ -68,6 +68,19 @@ abstract final class MensajesError {
       'Algún lugar elegido no está empatado. Recarga la salida.';
   static const cantidadDesempateInvalida =
       'Elige exactamente los lugares que faltan para el itinerario.';
+  static const faseNoPermiteItinerario =
+      'El itinerario ya no se puede editar en esta fase. Recarga la salida.';
+  static const empatePendiente =
+      'Primero hay que resolver el empate del último puesto.';
+  static const actividadesNoCoinciden =
+      'Las actividades cambiaron. Recarga el itinerario.';
+  static const inicioEnPasado =
+      'La fecha y hora de cada actividad debe ser futura.';
+  static const faseNoPermiteConfirmar =
+      'El itinerario solo se confirma tras cerrar la votación.';
+  static const sinActividades = 'El itinerario no tiene actividades.';
+  static const actividadesSinHorario =
+      'Asigna fecha y hora a todas las actividades antes de confirmar.';
 }
 
 // codigos que lanzan las rpc con raise exception; ver 04_DATABASE_SCHEMA.md seccion 6
@@ -101,6 +114,13 @@ const _mensajesRpc = {
   'sin_empate_pendiente': MensajesError.sinEmpatePendiente,
   'candidato_no_empatado': MensajesError.candidatoNoEmpatado,
   'cantidad_desempate_invalida': MensajesError.cantidadDesempateInvalida,
+  'fase_no_permite_itinerario': MensajesError.faseNoPermiteItinerario,
+  'empate_pendiente': MensajesError.empatePendiente,
+  'actividades_no_coinciden': MensajesError.actividadesNoCoinciden,
+  'inicio_en_pasado': MensajesError.inicioEnPasado,
+  'fase_no_permite_confirmar': MensajesError.faseNoPermiteConfirmar,
+  'sin_actividades': MensajesError.sinActividades,
+  'actividades_sin_horario': MensajesError.actividadesSinHorario,
 };
 
 // traduce excepciones de supabase a mensajes en espanol

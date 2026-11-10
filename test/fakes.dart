@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:app/core/errors/app_exception.dart';
 import 'package:app/features/auth/data/auth_repository.dart';
+import 'package:app/features/itinerario/data/actividad_model.dart';
+import 'package:app/features/itinerario/data/estimacion_presupuesto.dart';
+import 'package:app/features/itinerario/data/itinerario_repository.dart';
 import 'package:app/features/lugares/data/lugar_model.dart';
 import 'package:app/features/lugares/data/lugares_repository.dart';
 import 'package:app/features/lugares/data/propuesta_model.dart';
@@ -662,5 +665,98 @@ class FakeVotacionRepository implements VotacionRepository {
     final falla = errorEmpate;
     if (falla != null) throw falla;
     seleccionados.addAll(candidatoIds);
+  }
+}
+
+// itinerario en memoria que aplica las reglas de guardar_itinerario y confirmar_plan
+class FakeItinerarioRepository implements ItinerarioRepository {
+  FakeItinerarioRepository(this.salidas);
+
+  final FakeSalidasRepository salidas;
+  final actividadesPorPlan = <String, List<ActividadModel>>{};
+  // precio por lugar; null es desconocido
+  final precios = <String, double?>{};
+  AppException? errorGuardar;
+  AppException? errorConfirmar;
+  var guardados = 0;
+  var confirmados = 0;
+
+  // agrega actividades sin fecha y hora con lugares l1, l2, ...
+  void sembrar(String planId, List<String> lugarIds) {
+    actividadesPorPlan[planId] = [
+      for (final (i, lugarId) in lugarIds.indexed)
+        ActividadModel(
+          id: 'a$lugarId',
+          planId: planId,
+          lugarId: lugarId,
+          posicion: i + 1,
+          nombreLugar: 'Lugar $lugarId',
+          precioEstimadoPen: precios[lugarId],
+        ),
+    ];
+  }
+
+  @override
+  Future<List<ActividadModel>> obtenerActividades(String planId) async =>
+      List.of(actividadesPorPlan[planId] ?? const []);
+
+  @override
+  Future<EstimacionPresupuesto> obtenerEstimacion(String planId) async {
+    final plan = salidas.salidas.firstWhere((s) => s.plan.id == planId).plan;
+    final actividades = actividadesPorPlan[planId] ?? const [];
+    final conocidos = actividades
+        .map((a) => a.precioEstimadoPen)
+        .whereType<double>();
+    final total = conocidos.fold<double>(0, (suma, p) => suma + p);
+    final sinPrecio = actividades.length - conocidos.length;
+    return EstimacionPresupuesto(
+      presupuestoSoles: plan.presupuestoSoles,
+      totalEstimado: total,
+      actividades: actividades.length,
+      sinPrecio: sinPrecio,
+      incompleta: sinPrecio > 0,
+      excede: total > plan.presupuestoSoles,
+    );
+  }
+
+  @override
+  Future<void> guardarItinerario({
+    required String planId,
+    required List<ActividadModel> actividades,
+  }) async {
+    final falla = errorGuardar;
+    if (falla != null) throw falla;
+    guardados++;
+    actividadesPorPlan[planId] = [
+      for (final (i, a) in actividades.indexed)
+        a.copiarCon(posicion: i + 1, inicio: a.inicio),
+    ];
+  }
+
+  @override
+  Future<PlanModel> confirmarPlan(String planId) async {
+    final falla = errorConfirmar;
+    if (falla != null) throw falla;
+    final actividades = actividadesPorPlan[planId] ?? const [];
+    if (actividades.any((a) => a.inicio == null)) {
+      throw const AppException(MensajesError.actividadesSinHorario);
+    }
+    confirmados++;
+    final indice = salidas.salidas.indexWhere((s) => s.plan.id == planId);
+    final actual = salidas.salidas[indice];
+    final plan = planDePrueba(
+      id: actual.plan.id,
+      nombre: actual.plan.nombre,
+      estado: EstadoPlan.confirmado,
+      createdAt: actual.plan.createdAt,
+      maxActividades: actual.plan.maxActividades,
+    );
+    salidas.salidas[indice] = SalidaModel(
+      plan: plan,
+      miRol: actual.miRol,
+      esCreador: actual.esCreador,
+      totalParticipantes: actual.totalParticipantes,
+    );
+    return plan;
   }
 }

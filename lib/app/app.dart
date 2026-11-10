@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/presentation/sesion_view_model.dart';
+import '../features/itinerario/data/itinerario_repository.dart';
 import '../features/lugares/data/lugares_repository.dart';
 import '../features/lugares/data/propuestas_repository.dart';
 import '../features/lugares/presentation/destino_propuesta.dart';
@@ -23,6 +24,7 @@ class QuedamosApp extends StatefulWidget {
     required this.lugaresRepository,
     required this.propuestasRepository,
     required this.votacionRepository,
+    required this.itinerarioRepository,
   });
 
   final AuthRepository authRepository;
@@ -31,6 +33,7 @@ class QuedamosApp extends StatefulWidget {
   final LugaresRepository lugaresRepository;
   final PropuestasRepository propuestasRepository;
   final VotacionRepository votacionRepository;
+  final ItinerarioRepository itinerarioRepository;
 
   @override
   State<QuedamosApp> createState() => _QuedamosAppState();
@@ -79,6 +82,9 @@ class _QuedamosAppState extends State<QuedamosApp> {
           value: widget.propuestasRepository,
         ),
         Provider<VotacionRepository>.value(value: widget.votacionRepository),
+        Provider<ItinerarioRepository>.value(
+          value: widget.itinerarioRepository,
+        ),
         ChangeNotifierProvider<DestinoPropuesta>.value(value: _destino),
         ChangeNotifierProvider<SesionViewModel>.value(value: _sesion),
       ],

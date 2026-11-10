@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/errors/app_exception.dart';
+import '../../itinerario/data/actividad_model.dart';
+import '../../itinerario/data/estimacion_presupuesto.dart';
+import '../../itinerario/data/itinerario_repository.dart';
 import '../../lugares/data/propuesta_model.dart';
 import '../../lugares/data/propuestas_repository.dart';
 import '../../votacion/data/candidato_model.dart';
@@ -17,8 +20,9 @@ class DetallePlanViewModel extends ChangeNotifier {
     this._repositorio,
     this._propuestas,
     this._votacion,
-    this.planId,
-  ) {
+    this.planId, {
+    this.itinerario,
+  }) {
     // las propuestas pueden cambiar desde la ficha de un lugar en otra pestana
     _suscripcion = _propuestas.cambios
         .where((id) => id == planId)
@@ -28,6 +32,8 @@ class DetallePlanViewModel extends ChangeNotifier {
   final SalidasRepository _repositorio;
   final PropuestasRepository _propuestas;
   final VotacionRepository _votacion;
+  // null omite el itinerario y su estimacion
+  final ItinerarioRepository? itinerario;
   final String planId;
   late final StreamSubscription<String> _suscripcion;
 
@@ -48,6 +54,8 @@ class DetallePlanViewModel extends ChangeNotifier {
   String? _errorCierre;
   bool _resolviendo = false;
   String? _errorEmpate;
+  List<ActividadModel> _actividades = const [];
+  EstimacionPresupuesto? _estimacion;
   bool _desechado = false;
 
   SalidaModel? get salida => _salida;
@@ -100,6 +108,18 @@ class DetallePlanViewModel extends ChangeNotifier {
       _salida?.plan.estado == EstadoPlan.preparandoItinerario &&
       (_salida?.esAdministrador ?? false) &&
       (resultado?.empatePendiente ?? false);
+
+  // actividades en orden de ejecucion; existen desde el cierre de la votacion
+  List<ActividadModel> get actividades => _actividades;
+  EstimacionPresupuesto? get estimacion => _estimacion;
+
+  // solo administradores ordenan y asignan horarios antes de confirmar (rf12, p08)
+  bool get puedeRevisarItinerario =>
+      _salida?.plan.estado == EstadoPlan.preparandoItinerario &&
+      (_salida?.esAdministrador ?? false);
+
+  // el itinerario se edita solo con el empate resuelto (rb06)
+  bool get itinerarioBloqueadoPorEmpate => resultado?.empatePendiente ?? false;
 
   bool get recibePropuestas =>
       _salida?.plan.estado == EstadoPlan.recibiendoPropuestas;
@@ -161,6 +181,15 @@ class DetallePlanViewModel extends ChangeNotifier {
       _misVotos = salida != null && enVotacion
           ? await _votacion.obtenerMisVotos(planId)
           : const {};
+      final repositorio = itinerario;
+      final conItinerario =
+          salida != null && votacionCerrada && repositorio != null;
+      _actividades = conItinerario
+          ? await repositorio.obtenerActividades(planId)
+          : const [];
+      _estimacion = conItinerario
+          ? await repositorio.obtenerEstimacion(planId)
+          : null;
     } catch (error) {
       _error = _mensaje(error);
     } finally {

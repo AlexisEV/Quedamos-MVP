@@ -5,6 +5,7 @@ import 'package:app/app/theme/app_theme.dart';
 import 'package:app/features/auth/data/auth_repository.dart';
 import 'package:app/features/auth/presentation/acceso_screen.dart';
 import 'package:app/features/auth/presentation/sesion_view_model.dart';
+import 'package:app/features/itinerario/data/itinerario_repository.dart';
 import 'package:app/features/lugares/data/lugar_model.dart';
 import 'package:app/features/lugares/data/lugares_repository.dart';
 import 'package:app/features/lugares/data/propuestas_repository.dart';
@@ -73,6 +74,9 @@ Future<StreamController<bool>> montarApp(
         ),
         Provider<VotacionRepository>.value(
           value: votacion ?? FakeVotacionRepository(repoSalidas),
+        ),
+        Provider<ItinerarioRepository>.value(
+          value: FakeItinerarioRepository(repoSalidas),
         ),
         ChangeNotifierProvider<DestinoPropuesta>(
           create: (_) => DestinoPropuesta(),

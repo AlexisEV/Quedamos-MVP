@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/presentation/acceso_screen.dart';
 import '../features/auth/presentation/sesion_view_model.dart';
+import '../features/itinerario/presentation/revisar_itinerario_screen.dart';
 import '../features/lugares/presentation/explorar_screen.dart';
 import '../features/lugares/presentation/ficha_lugar_screen.dart';
 import '../features/notificaciones/presentation/notificaciones_screen.dart';
@@ -18,6 +19,7 @@ abstract final class Rutas {
   static const crearPlan = '/salidas/crear';
   static String detallePlan(String planId) => '/salidas/$planId';
   static String votacion(String planId) => '/salidas/$planId/votacion';
+  static String itinerario(String planId) => '/salidas/$planId/itinerario';
   static const explorar = '/explorar';
   static String fichaLugar(String lugarId) => '/explorar/$lugarId';
   static const notificaciones = '/notificaciones';
@@ -65,6 +67,13 @@ GoRouter crearRouter(SesionViewModel sesion) {
                       GoRoute(
                         path: 'votacion',
                         builder: (context, state) => VotacionScreen(
+                          planId: state.pathParameters['planId']!,
+                        ),
+                      ),
+                      // p08: orden, fecha y hora y confirmacion del itinerario
+                      GoRoute(
+                        path: 'itinerario',
+                        builder: (context, state) => RevisarItinerarioScreen(
                           planId: state.pathParameters['planId']!,
                         ),
                       ),
