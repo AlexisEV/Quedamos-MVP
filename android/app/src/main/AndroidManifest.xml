@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- conexion con supabase; sin esta linea la apk de release no tiene red -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- reprograma los avisos locales tras reiniciar el telefono -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- avisos puntuales 30 min antes de cada actividad; android 12 usa schedule, 13 o mayor use -->
