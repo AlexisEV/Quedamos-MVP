@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:app/core/errors/app_exception.dart';
 import 'package:app/features/auth/data/auth_repository.dart';
 import 'package:app/features/itinerario/data/actividad_model.dart';
+import 'package:app/features/itinerario/data/cambio_plan_model.dart';
 import 'package:app/features/itinerario/data/estimacion_presupuesto.dart';
 import 'package:app/features/itinerario/data/itinerario_repository.dart';
 import 'package:app/features/lugares/data/lugar_model.dart';
@@ -116,6 +117,8 @@ class FakeSalidasRepository implements SalidasRepository {
   AppException? errorNombrar;
   final respuestas = <EstadoAsistencia>[];
   AppException? errorAsistencia;
+  AppException? errorCancelar;
+  var cancelados = 0;
 
   @override
   String? usuarioActualId = 'u1';
@@ -221,6 +224,45 @@ class FakeSalidasRepository implements SalidasRepository {
       unidoEn: actual.unidoEn,
       asistencia: actual.asistencia,
     );
+  }
+
+  // misma regla que la rpc: cancelado es final y un reintento no falla
+  @override
+  Future<PlanModel> cancelarPlan(String planId) async {
+    final falla = errorCancelar;
+    if (falla != null) throw falla;
+    final indice = salidas.indexWhere((s) => s.plan.id == planId);
+    final actual = salidas[indice];
+    if (!actual.esAdministrador) {
+      throw const AppException(MensajesError.noAutorizado);
+    }
+    if (actual.plan.estado == EstadoPlan.cancelado) return actual.plan;
+    cancelados++;
+    final p = actual.plan;
+    final plan = PlanModel(
+      id: p.id,
+      nombre: p.nombre,
+      estado: EstadoPlan.cancelado,
+      presupuestoSoles: p.presupuestoSoles,
+      maxPropuestasPorPersona: p.maxPropuestasPorPersona,
+      maxCandidatos: p.maxCandidatos,
+      maxSelecciones: p.maxSelecciones,
+      maxActividades: p.maxActividades,
+      codigoInvitacion: p.codigoInvitacion,
+      creadoPor: p.creadoPor,
+      createdAt: p.createdAt,
+      fechaLimiteVoto: p.fechaLimiteVoto,
+      fechaLimiteAsistencia: p.fechaLimiteAsistencia,
+      canceladoEn: DateTime.utc(2026, 11, 10, 15),
+    );
+    salidas[indice] = SalidaModel(
+      plan: plan,
+      miRol: actual.miRol,
+      esCreador: actual.esCreador,
+      totalParticipantes: actual.totalParticipantes,
+    );
+    avisarCambio();
+    return plan;
   }
 
   // misma regla que la rpc: solo confirmado y nunca pendiente
@@ -708,8 +750,12 @@ class FakeItinerarioRepository implements ItinerarioRepository {
   final precios = <String, double?>{};
   AppException? errorGuardar;
   AppException? errorConfirmar;
+  AppException? errorReemplazo;
+  AppException? errorHorario;
   var guardados = 0;
   var confirmados = 0;
+  // historial por plan, del mas reciente al mas antiguo
+  final cambiosPorPlan = <String, List<CambioPlanModel>>{};
 
   // agrega actividades sin fecha y hora con lugares l1, l2, ...
   void sembrar(String planId, List<String> lugarIds) {
@@ -789,4 +835,104 @@ class FakeItinerarioRepository implements ItinerarioRepository {
     );
     return plan;
   }
+
+  ActividadModel _actividad(String actividadId) => actividadesPorPlan.values
+      .expand((lista) => lista)
+      .firstWhere((a) => a.id == actividadId);
+
+  void _exigirConfirmado(String planId) {
+    final plan = salidas.salidas.firstWhere((s) => s.plan.id == planId).plan;
+    if (plan.estado == EstadoPlan.cancelado) {
+      throw const AppException(MensajesError.planCancelado);
+    }
+    if (plan.estado != EstadoPlan.confirmado) {
+      throw const AppException(MensajesError.planNoConfirmado);
+    }
+  }
+
+  void _guardarActividad(ActividadModel nueva) {
+    final lista = actividadesPorPlan[nueva.planId]!;
+    final indice = lista.indexWhere((a) => a.id == nueva.id);
+    lista[indice] = nueva;
+  }
+
+  void _registrar(String planId, CambioPlanModel cambio) {
+    cambiosPorPlan.putIfAbsent(planId, () => []).insert(0, cambio);
+  }
+
+  // mismas reglas que reemplazar_actividad: confirmado, sin repetir lugares
+  @override
+  Future<ActividadModel> reemplazarActividad({
+    required String actividadId,
+    required String lugarId,
+  }) async {
+    final falla = errorReemplazo;
+    if (falla != null) throw falla;
+    final actual = _actividad(actividadId);
+    _exigirConfirmado(actual.planId);
+    if (actual.lugarId == lugarId) return actual;
+    if (actividadesPorPlan[actual.planId]!.any((a) => a.lugarId == lugarId)) {
+      throw const AppException(MensajesError.lugarEnItinerario);
+    }
+    final nueva = ActividadModel(
+      id: actual.id,
+      planId: actual.planId,
+      lugarId: lugarId,
+      posicion: actual.posicion,
+      inicio: actual.inicio,
+      nombreLugar: 'Lugar $lugarId',
+      precioEstimadoPen: precios[lugarId],
+    );
+    _guardarActividad(nueva);
+    _registrar(
+      actual.planId,
+      CambioPlanModel(
+        id: 'cambio${cambiosPorPlan[actual.planId]?.length ?? 0}',
+        tipo: TipoCambio.reemplazo,
+        creadoEn: DateTime.utc(2026, 11, 10, 15),
+        lugarAnterior: actual.nombreLugar,
+        lugarNuevo: nueva.nombreLugar,
+        inicioAnterior: actual.inicio,
+        inicioNuevo: actual.inicio,
+        realizadoPor: 'Persona ${salidas.usuarioActualId}',
+      ),
+    );
+    return nueva;
+  }
+
+  // mismas reglas que cambiar_horario_actividad: confirmado e inicio futuro
+  @override
+  Future<ActividadModel> cambiarHorario({
+    required String actividadId,
+    required DateTime inicio,
+  }) async {
+    final falla = errorHorario;
+    if (falla != null) throw falla;
+    final actual = _actividad(actividadId);
+    _exigirConfirmado(actual.planId);
+    if (actual.inicio == inicio) return actual;
+    if (!inicio.isAfter(DateTime.now())) {
+      throw const AppException(MensajesError.inicioEnPasado);
+    }
+    final nueva = actual.copiarCon(posicion: actual.posicion, inicio: inicio);
+    _guardarActividad(nueva);
+    _registrar(
+      actual.planId,
+      CambioPlanModel(
+        id: 'cambio${cambiosPorPlan[actual.planId]?.length ?? 0}',
+        tipo: TipoCambio.horario,
+        creadoEn: DateTime.utc(2026, 11, 10, 15),
+        lugarAnterior: actual.nombreLugar,
+        lugarNuevo: actual.nombreLugar,
+        inicioAnterior: actual.inicio,
+        inicioNuevo: inicio,
+        realizadoPor: 'Persona ${salidas.usuarioActualId}',
+      ),
+    );
+    return nueva;
+  }
+
+  @override
+  Future<List<CambioPlanModel>> obtenerCambios(String planId) async =>
+      List.of(cambiosPorPlan[planId] ?? const []);
 }

@@ -43,6 +43,7 @@ class PlanModel {
     required this.createdAt,
     this.fechaLimiteVoto,
     this.fechaLimiteAsistencia,
+    this.canceladoEn,
   });
 
   factory PlanModel.fromJson(Map<String, dynamic> json) {
@@ -61,6 +62,7 @@ class PlanModel {
       createdAt: DateTime.parse(json['created_at'] as String),
       fechaLimiteVoto: _fechaOpcional(json['fecha_limite_voto']),
       fechaLimiteAsistencia: _fechaOpcional(json['fecha_limite_asistencia']),
+      canceladoEn: _fechaOpcional(json['cancelado_en']),
     );
   }
 
@@ -78,6 +80,8 @@ class PlanModel {
   // plazos opcionales en utc; null significa sin plazo ni recordatorio
   final DateTime? fechaLimiteVoto;
   final DateTime? fechaLimiteAsistencia;
+  // momento de la cancelacion; null mientras el plan sigue activo
+  final DateTime? canceladoEn;
 
   static DateTime? _fechaOpcional(Object? valor) =>
       valor == null ? null : DateTime.parse(valor as String).toUtc();

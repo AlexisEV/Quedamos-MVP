@@ -15,6 +15,7 @@ import '../data/salidas_repository.dart';
 import 'detalle_plan_view_model.dart';
 import 'widgets/cabecera_plan.dart';
 import 'widgets/tarjeta_asistencia.dart';
+import 'widgets/tarjeta_cambios.dart';
 import 'widgets/tarjeta_candidatos.dart';
 import 'widgets/tarjeta_itinerario.dart';
 import 'widgets/tarjeta_propuestas.dart';
@@ -62,37 +63,9 @@ class _DetalleVista extends StatelessWidget {
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(AppSpacing.margin),
-          children: [
-            _TarjetaResumen(
-              salida: salida,
-              inicio: vm.inicioSalida,
-              textoCompartido: vm.textoCompartido,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            // confirmado: el resultado de la votacion y los limites ya no se muestran
-            if (vm.confirmado) ...[
-              const TarjetaAsistencia(),
-              const SizedBox(height: AppSpacing.md),
-              const TarjetaItinerario(),
-            ] else if (vm.votacionCerrada) ...[
-              const TarjetaItinerario(),
-              const SizedBox(height: AppSpacing.md),
-              const TarjetaResultado(),
-            ] else if (vm.muestraCandidatos)
-              const TarjetaCandidatos()
-            else
-              const TarjetaPropuestas(),
-            const SizedBox(height: AppSpacing.md),
-            const TarjetaParticipantes(),
-            if (!vm.confirmado) ...[
-              const SizedBox(height: AppSpacing.md),
-              _TarjetaLimites(plan: salida.plan),
-            ],
-            if (vm.puedeGestionar) ...[
-              const SizedBox(height: AppSpacing.md),
-              const TarjetaGestionAdmin(),
-            ],
-          ],
+          children: vm.cancelado
+              ? _vistaCancelada(vm, salida)
+              : _vistaActiva(vm, salida),
         ),
       );
     }
@@ -118,6 +91,107 @@ class _DetalleVista extends StatelessWidget {
     }
     return const Center(child: CircularProgressIndicator());
   }
+
+  // cancelado: solo lectura con aviso, itinerario si lo hubo, grupo e historial
+  List<Widget> _vistaCancelada(DetallePlanViewModel vm, SalidaModel salida) {
+    return [
+      _TarjetaResumen(salida: salida, mostrarCodigo: false),
+      const SizedBox(height: AppSpacing.md),
+      _AvisoCancelado(canceladoEn: salida.plan.canceladoEn),
+      if (vm.actividades.isNotEmpty) ...[
+        const SizedBox(height: AppSpacing.md),
+        const TarjetaItinerario(),
+      ],
+      const SizedBox(height: AppSpacing.md),
+      const TarjetaParticipantes(),
+      if (vm.cambios.isNotEmpty) ...[
+        const SizedBox(height: AppSpacing.md),
+        const TarjetaCambios(),
+      ],
+    ];
+  }
+
+  List<Widget> _vistaActiva(DetallePlanViewModel vm, SalidaModel salida) {
+    return [
+      _TarjetaResumen(
+        salida: salida,
+        inicio: vm.inicioSalida,
+        textoCompartido: vm.textoCompartido,
+      ),
+      const SizedBox(height: AppSpacing.md),
+      // confirmado: el resultado de la votacion y los limites ya no se muestran
+      if (vm.confirmado) ...[
+        const TarjetaAsistencia(),
+        const SizedBox(height: AppSpacing.md),
+        const TarjetaItinerario(),
+        if (vm.cambios.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          const TarjetaCambios(),
+        ],
+      ] else if (vm.votacionCerrada) ...[
+        const TarjetaItinerario(),
+        const SizedBox(height: AppSpacing.md),
+        const TarjetaResultado(),
+      ] else if (vm.muestraCandidatos)
+        const TarjetaCandidatos()
+      else
+        const TarjetaPropuestas(),
+      const SizedBox(height: AppSpacing.md),
+      const TarjetaParticipantes(),
+      if (!vm.confirmado) ...[
+        const SizedBox(height: AppSpacing.md),
+        _TarjetaLimites(plan: salida.plan),
+      ],
+      if (vm.puedeGestionar) ...[
+        const SizedBox(height: AppSpacing.md),
+        const TarjetaGestionAdmin(),
+      ],
+    ];
+  }
+}
+
+class _AvisoCancelado extends StatelessWidget {
+  const _AvisoCancelado({this.canceladoEn});
+
+  final DateTime? canceladoEn;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final fecha = canceladoEn;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.budgetBadgeBg,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.event_busy_outlined, color: AppColors.error),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  fecha == null
+                      ? 'Salida cancelada'
+                      : 'Salida cancelada el ${formatearFechaHoraLima(fecha)}',
+                  style: textos.titleMedium?.copyWith(color: AppColors.error),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Ya no se puede modificar y su código dejó de funcionar.',
+                  style: textos.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _TarjetaResumen extends StatelessWidget {
@@ -125,9 +199,12 @@ class _TarjetaResumen extends StatelessWidget {
     required this.salida,
     this.inicio,
     this.textoCompartido,
+    this.mostrarCodigo = true,
   });
 
   final SalidaModel salida;
+  // un plan cancelado no muestra el codigo ni el boton de compartir
+  final bool mostrarCodigo;
   // solo con el plan confirmado
   final DateTime? inicio;
   final String? textoCompartido;
@@ -168,8 +245,10 @@ class _TarjetaResumen extends StatelessWidget {
                   icono: Icons.group_outlined,
                   texto: total == 1 ? '1 participante' : '$total participantes',
                 ),
-                const SizedBox(height: AppSpacing.md),
-                _BloqueCodigo(plan: plan, textoCompartido: textoCompartido),
+                if (mostrarCodigo) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _BloqueCodigo(plan: plan, textoCompartido: textoCompartido),
+                ],
               ],
             ),
           ),

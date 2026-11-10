@@ -181,4 +181,20 @@ class SalidasRepository {
       throw traducirError(error);
     }
   }
+
+  // irreversible; repetirla con el plan ya cancelado devuelve el plan sin error (rf10)
+  Future<PlanModel> cancelarPlan(String planId) async {
+    try {
+      final fila = await _cliente.rpc(
+        'cancelar_plan',
+        params: {'p_plan_id': planId},
+      );
+      final plan = PlanModel.fromJson(fila as Map<String, dynamic>);
+      // mis salidas mueve el plan a la seccion de cancelados
+      avisarCambio();
+      return plan;
+    } catch (error) {
+      throw traducirError(error);
+    }
+  }
 }

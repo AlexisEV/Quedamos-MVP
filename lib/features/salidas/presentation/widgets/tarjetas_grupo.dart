@@ -8,6 +8,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/utils/formato.dart';
 import '../../../../core/widgets/mensaje_error.dart';
 import '../../../../core/widgets/selector_fecha_hora.dart';
+import '../../../itinerario/data/actividad_model.dart';
 import '../../data/participante_model.dart';
 import '../detalle_plan_view_model.dart';
 import 'estilo_asistencia.dart';
@@ -387,6 +388,128 @@ class TarjetaGestionAdmin extends StatelessWidget {
     await vm.cargar();
   }
 
+  // hoja con las actividades del itinerario confirmado; devuelve la elegida
+  Future<ActividadModel?> _elegirActividad(
+    BuildContext context,
+    String titulo,
+  ) {
+    final vm = context.read<DetallePlanViewModel>();
+    return showModalBottomSheet<ActividadModel>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      builder: (context) =>
+          _HojaActividades(titulo: titulo, actividades: vm.actividades),
+    );
+  }
+
+  // al volver con un reemplazo guardado se recarga el detalle (rf10, p07)
+  Future<void> _reemplazar(BuildContext context) async {
+    final vm = context.read<DetallePlanViewModel>();
+    final mensajes = ScaffoldMessenger.of(context);
+    final actividad = await _elegirActividad(
+      context,
+      'Elige la actividad a reemplazar',
+    );
+    if (actividad == null || !context.mounted) return;
+    final guardado = await context.push<bool>(
+      Rutas.reemplazar(vm.planId, actividad.id),
+    );
+    if (guardado == true) {
+      await vm.cargar();
+      mensajes.showSnackBar(
+        const SnackBar(content: Text('Actividad reemplazada.')),
+      );
+    }
+  }
+
+  // nueva fecha y hora futura para una actividad, con confirmacion (rf10)
+  Future<void> _modificarHorario(BuildContext context) async {
+    final vm = context.read<DetallePlanViewModel>();
+    final mensajes = ScaffoldMessenger.of(context);
+    final actividad = await _elegirActividad(
+      context,
+      'Elige la actividad a reprogramar',
+    );
+    if (actividad == null || !context.mounted) return;
+    final inicio = await elegirFechaHoraLima(
+      context,
+      actual: actividad.inicio,
+      tituloFecha: 'Nueva fecha de la actividad',
+      tituloHora: 'Nueva hora de inicio',
+    );
+    if (inicio == null || !context.mounted) return;
+    if (!inicio.isAfter(DateTime.now())) {
+      mensajes.showSnackBar(
+        const SnackBar(content: Text('Elige una fecha y hora futura.')),
+      );
+      return;
+    }
+    final anterior = actividad.inicio;
+    final textoAnterior = anterior == null
+        ? 'sin fecha/hora'
+        : formatearFechaHoraLima(anterior);
+    final nombre = actividad.nombreLugar ?? 'La actividad';
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cambiar fecha y hora'),
+        content: Text(
+          '$nombre pasa de $textoAnterior a ${formatearFechaHoraLima(inicio)}. '
+          'El grupo verá el cambio en el itinerario.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Volver'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cambiar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+    if (await vm.cambiarHorario(actividad, inicio)) {
+      mensajes.showSnackBar(
+        const SnackBar(content: Text('Fecha y hora actualizadas.')),
+      );
+    }
+  }
+
+  // irreversible: el codigo deja de funcionar y el plan pasa a cancelado (rf10)
+  Future<void> _cancelar(BuildContext context) async {
+    final vm = context.read<DetallePlanViewModel>();
+    final mensajes = ScaffoldMessenger.of(context);
+    final nombre = vm.salida?.plan.nombre ?? 'la salida';
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('¿Cancelar $nombre?'),
+        content: const Text(
+          'No se puede deshacer. El código de la salida dejará de funcionar '
+          'y se avisará al grupo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Volver'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Cancelar salida'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+    if (await vm.cancelarPlan()) {
+      mensajes.showSnackBar(const SnackBar(content: Text('Salida cancelada.')));
+    }
+  }
+
   Future<void> _cerrarVotacion(BuildContext context) async {
     final vm = context.read<DetallePlanViewModel>();
     final mensajes = ScaffoldMessenger.of(context);
@@ -559,6 +682,70 @@ class TarjetaGestionAdmin extends StatelessWidget {
               const SizedBox(height: AppSpacing.gutterSm),
               MensajeError(mensaje: vm.errorAsignacion!),
             ],
+            if (vm.puedeCambiarItinerario) ...[
+              const SizedBox(height: AppSpacing.gutterSm),
+              Material(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ListTile(
+                  shape: forma,
+                  leading: const Icon(Icons.edit_calendar_outlined),
+                  title: const Text('Reemplazar o cambiar actividad'),
+                  subtitle: const Text('Directo, sin nueva votación'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _reemplazar(context),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.gutterSm),
+              Material(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ListTile(
+                  shape: forma,
+                  enabled: vm.cambiandoHorario == null,
+                  leading: vm.cambiandoHorario != null
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.update),
+                  title: const Text('Modificar fecha y hora'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _modificarHorario(context),
+                ),
+              ),
+              if (vm.errorHorario != null) ...[
+                const SizedBox(height: AppSpacing.gutterSm),
+                MensajeError(mensaje: vm.errorHorario!),
+              ],
+            ],
+            if (vm.puedeCancelar) ...[
+              const SizedBox(height: AppSpacing.md),
+              Material(
+                color: AppColors.budgetBadgeBg,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ListTile(
+                  shape: forma,
+                  enabled: !vm.cancelando,
+                  iconColor: AppColors.error,
+                  textColor: AppColors.error,
+                  leading: vm.cancelando
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.event_busy_outlined),
+                  title: const Text('Cancelar esta salida'),
+                  onTap: () => _cancelar(context),
+                ),
+              ),
+              if (vm.errorCancelacion != null) ...[
+                const SizedBox(height: AppSpacing.gutterSm),
+                MensajeError(mensaje: vm.errorCancelacion!),
+              ],
+            ],
           ],
         ),
       ),
@@ -597,6 +784,42 @@ class _HojaNombrables extends StatelessWidget {
               title: Text(participante.nombreVisible),
               subtitle: Text(participante.etiquetaRol),
               onTap: () => Navigator.of(context).pop(participante),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HojaActividades extends StatelessWidget {
+  const _HojaActividades({required this.titulo, required this.actividades});
+
+  final String titulo;
+  final List<ActividadModel> actividades;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    return SafeArea(
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Text(titulo, style: textos.titleMedium),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          for (final actividad in actividades)
+            ListTile(
+              leading: CircleAvatar(child: Text('${actividad.posicion}')),
+              title: Text(actividad.nombreLugar ?? 'Lugar no disponible'),
+              subtitle: Text(
+                actividad.inicio == null
+                    ? 'Sin fecha/hora'
+                    : formatearFechaHoraLima(actividad.inicio!),
+              ),
+              onTap: () => Navigator.of(context).pop(actividad),
             ),
         ],
       ),

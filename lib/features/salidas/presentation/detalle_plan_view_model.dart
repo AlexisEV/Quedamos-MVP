@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../itinerario/data/actividad_model.dart';
+import '../../itinerario/data/cambio_plan_model.dart';
 import '../../itinerario/data/estimacion_presupuesto.dart';
 import '../../itinerario/data/itinerario_repository.dart';
 import '../../lugares/data/propuesta_model.dart';
@@ -62,6 +63,12 @@ class DetallePlanViewModel extends ChangeNotifier {
   String? _errorAsistencia;
   bool _guardandoPlazo = false;
   String? _errorPlazo;
+  List<CambioPlanModel> _cambios = const [];
+  // actividad cuyo horario se esta guardando
+  String? _cambiandoHorario;
+  String? _errorHorario;
+  bool _cancelando = false;
+  String? _errorCancelacion;
   bool _desechado = false;
 
   SalidaModel? get salida => _salida;
@@ -120,6 +127,23 @@ class DetallePlanViewModel extends ChangeNotifier {
   EstimacionPresupuesto? get estimacion => _estimacion;
 
   bool get confirmado => _salida?.plan.estado == EstadoPlan.confirmado;
+  bool get cancelado => _salida?.plan.estado == EstadoPlan.cancelado;
+
+  // historial de reemplazos, horarios y cancelacion, del mas reciente al mas antiguo (rf10)
+  List<CambioPlanModel> get cambios => _cambios;
+  String? get cambiandoHorario => _cambiandoHorario;
+  String? get errorHorario => _errorHorario;
+  bool get cancelando => _cancelando;
+  String? get errorCancelacion => _errorCancelacion;
+
+  // solo administradores cambian actividades del plan confirmado (rf10)
+  bool get puedeCambiarItinerario =>
+      confirmado &&
+      (_salida?.esAdministrador ?? false) &&
+      _actividades.isNotEmpty;
+
+  // solo administradores cancelan, desde cualquier fase activa (rf10)
+  bool get puedeCancelar => puedeGestionar;
 
   // inicio de la salida: hora de la primera actividad del itinerario confirmado
   DateTime? get inicioSalida {
@@ -240,14 +264,20 @@ class DetallePlanViewModel extends ChangeNotifier {
           ? await _votacion.obtenerMisVotos(planId)
           : const {};
       final repositorio = itinerario;
+      // un plan cancelado conserva el itinerario que tenia, si lo hubo
       final conItinerario =
-          salida != null && votacionCerrada && repositorio != null;
+          salida != null &&
+          (votacionCerrada || cancelado) &&
+          repositorio != null;
       _actividades = conItinerario
           ? await repositorio.obtenerActividades(planId)
           : const [];
-      _estimacion = conItinerario
+      _estimacion = conItinerario && (!cancelado || _actividades.isNotEmpty)
           ? await repositorio.obtenerEstimacion(planId)
           : null;
+      _cambios = repositorio != null && (confirmado || cancelado)
+          ? await repositorio.obtenerCambios(planId)
+          : const [];
     } catch (error) {
       _error = _mensaje(error);
     } finally {
@@ -340,6 +370,52 @@ class DetallePlanViewModel extends ChangeNotifier {
       _guardandoPlazo = false;
       _notificar();
     }
+  }
+
+  // true solo cuando el servidor guardo el nuevo inicio; si falla se conserva el anterior
+  Future<bool> cambiarHorario(ActividadModel actividad, DateTime inicio) async {
+    final repositorio = itinerario;
+    if (_cambiandoHorario != null ||
+        repositorio == null ||
+        !puedeCambiarItinerario) {
+      return false;
+    }
+    _cambiandoHorario = actividad.id;
+    _errorHorario = null;
+    _notificar();
+    try {
+      await repositorio.cambiarHorario(
+        actividadId: actividad.id,
+        inicio: inicio,
+      );
+    } catch (error) {
+      _errorHorario = _mensaje(error);
+      _cambiandoHorario = null;
+      _notificar();
+      return false;
+    }
+    _cambiandoHorario = null;
+    await cargar();
+    return true;
+  }
+
+  // true solo cuando el servidor cancelo el plan; si falla el plan sigue igual
+  Future<bool> cancelarPlan() async {
+    if (_cancelando || !puedeCancelar) return false;
+    _cancelando = true;
+    _errorCancelacion = null;
+    _notificar();
+    try {
+      await _repositorio.cancelarPlan(planId);
+    } catch (error) {
+      _errorCancelacion = _mensaje(error);
+      _cancelando = false;
+      _notificar();
+      return false;
+    }
+    _cancelando = false;
+    await cargar();
+    return true;
   }
 
   // true solo cuando el servidor confirmo el cierre; un rechazo deja la votacion abierta

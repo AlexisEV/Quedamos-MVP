@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/presentation/acceso_screen.dart';
 import '../features/auth/presentation/sesion_view_model.dart';
+import '../features/itinerario/presentation/reemplazar_actividad_screen.dart';
 import '../features/itinerario/presentation/revisar_itinerario_screen.dart';
 import '../features/lugares/presentation/explorar_screen.dart';
 import '../features/lugares/presentation/ficha_lugar_screen.dart';
@@ -20,6 +21,8 @@ abstract final class Rutas {
   static String detallePlan(String planId) => '/salidas/$planId';
   static String votacion(String planId) => '/salidas/$planId/votacion';
   static String itinerario(String planId) => '/salidas/$planId/itinerario';
+  static String reemplazar(String planId, String actividadId) =>
+      '/salidas/$planId/reemplazar/$actividadId';
   static const explorar = '/explorar';
   static String fichaLugar(String lugarId) => '/explorar/$lugarId';
   static const notificaciones = '/notificaciones';
@@ -75,6 +78,14 @@ GoRouter crearRouter(SesionViewModel sesion) {
                         path: 'itinerario',
                         builder: (context, state) => RevisarItinerarioScreen(
                           planId: state.pathParameters['planId']!,
+                        ),
+                      ),
+                      // p07: reemplazo directo de una actividad confirmada
+                      GoRoute(
+                        path: 'reemplazar/:actividadId',
+                        builder: (context, state) => ReemplazarActividadScreen(
+                          planId: state.pathParameters['planId']!,
+                          actividadId: state.pathParameters['actividadId']!,
                         ),
                       ),
                     ],
