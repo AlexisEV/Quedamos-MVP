@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_spacing.dart';
@@ -19,7 +20,7 @@ import 'widgets/tarjeta_propuestas.dart';
 import 'widgets/tarjeta_resultado.dart';
 import 'widgets/tarjetas_grupo.dart';
 
-// detalle de la salida: fase, rol, presupuesto, codigo, grupo, limites y gestion
+// detalle de la salida: fase, rol, presupuesto, codigo, itinerario, grupo, limites y gestion
 class DetallePlanScreen extends StatelessWidget {
   const DetallePlanScreen({super.key, required this.planId});
 
@@ -61,9 +62,16 @@ class _DetalleVista extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(AppSpacing.margin),
           children: [
-            _TarjetaResumen(salida: salida),
+            _TarjetaResumen(
+              salida: salida,
+              inicio: vm.inicioSalida,
+              textoCompartido: vm.textoCompartido,
+            ),
             const SizedBox(height: AppSpacing.md),
-            if (vm.votacionCerrada) ...[
+            // confirmado: el resultado de la votacion y los limites ya no se muestran
+            if (vm.confirmado)
+              const TarjetaItinerario()
+            else if (vm.votacionCerrada) ...[
               const TarjetaItinerario(),
               const SizedBox(height: AppSpacing.md),
               const TarjetaResultado(),
@@ -73,8 +81,10 @@ class _DetalleVista extends StatelessWidget {
               const TarjetaPropuestas(),
             const SizedBox(height: AppSpacing.md),
             const TarjetaParticipantes(),
-            const SizedBox(height: AppSpacing.md),
-            _TarjetaLimites(plan: salida.plan),
+            if (!vm.confirmado) ...[
+              const SizedBox(height: AppSpacing.md),
+              _TarjetaLimites(plan: salida.plan),
+            ],
             if (vm.puedeGestionar) ...[
               const SizedBox(height: AppSpacing.md),
               const TarjetaGestionAdmin(),
@@ -108,9 +118,16 @@ class _DetalleVista extends StatelessWidget {
 }
 
 class _TarjetaResumen extends StatelessWidget {
-  const _TarjetaResumen({required this.salida});
+  const _TarjetaResumen({
+    required this.salida,
+    this.inicio,
+    this.textoCompartido,
+  });
 
   final SalidaModel salida;
+  // solo con el plan confirmado
+  final DateTime? inicio;
+  final String? textoCompartido;
 
   @override
   Widget build(BuildContext context) {
@@ -128,9 +145,19 @@ class _TarjetaResumen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (inicio != null) ...[
+                  _Dato(
+                    icono: Icons.calendar_today_outlined,
+                    texto: formatearFechaLargaLima(inicio!),
+                    destacado: true,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
                 _Dato(
                   icono: Icons.payments_outlined,
-                  texto: 'Presupuesto por persona: ',
+                  texto: plan.estado == EstadoPlan.confirmado
+                      ? 'Presupuesto acordado: '
+                      : 'Presupuesto por persona: ',
                   valor: formatearSoles(plan.presupuestoSoles),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -139,7 +166,7 @@ class _TarjetaResumen extends StatelessWidget {
                   texto: total == 1 ? '1 participante' : '$total participantes',
                 ),
                 const SizedBox(height: AppSpacing.md),
-                _BloqueCodigo(plan: plan),
+                _BloqueCodigo(plan: plan, textoCompartido: textoCompartido),
               ],
             ),
           ),
@@ -150,11 +177,18 @@ class _TarjetaResumen extends StatelessWidget {
 }
 
 class _Dato extends StatelessWidget {
-  const _Dato({required this.icono, required this.texto, this.valor});
+  const _Dato({
+    required this.icono,
+    required this.texto,
+    this.valor,
+    this.destacado = false,
+  });
 
   final IconData icono;
   final String texto;
   final String? valor;
+  // la fecha de la salida se lee en el color del texto principal
+  final bool destacado;
 
   @override
   Widget build(BuildContext context) {
@@ -167,9 +201,9 @@ class _Dato extends StatelessWidget {
           child: Text.rich(
             TextSpan(
               text: texto,
-              style: textos.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: destacado
+                  ? textos.titleMedium
+                  : textos.bodyMedium?.copyWith(color: AppColors.textSecondary),
               children: [
                 if (valor != null)
                   TextSpan(
@@ -188,9 +222,33 @@ class _Dato extends StatelessWidget {
 }
 
 class _BloqueCodigo extends StatelessWidget {
-  const _BloqueCodigo({required this.plan});
+  const _BloqueCodigo({required this.plan, this.textoCompartido});
 
   final PlanModel plan;
+  // null oculta el boton de compartir
+  final String? textoCompartido;
+
+  Future<void> _compartir(BuildContext context, String texto) async {
+    final mensajes = ScaffoldMessenger.of(context);
+    // el origen ubica la hoja en tabletas ios; android lo ignora
+    final caja = context.findRenderObject() as RenderBox?;
+    final origen = caja == null
+        ? null
+        : caja.localToGlobal(Offset.zero) & caja.size;
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: texto,
+          subject: plan.nombre,
+          sharePositionOrigin: origen,
+        ),
+      );
+    } catch (_) {
+      mensajes.showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir la hoja de compartir.')),
+      );
+    }
+  }
 
   Future<void> _copiar(BuildContext context) async {
     final mensajes = ScaffoldMessenger.of(context);
@@ -254,13 +312,24 @@ class _BloqueCodigo extends StatelessWidget {
                   icon: const Icon(Icons.copy, size: 18),
                   label: const Text('Copiar código'),
                 ),
+              if (activo && textoCompartido != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                IconButton.filled(
+                  onPressed: () => _compartir(context, textoCompartido!),
+                  style: IconButton.styleFrom(minimumSize: const Size(44, 44)),
+                  tooltip: 'Compartir resumen',
+                  icon: const Icon(Icons.share_outlined),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            activo
-                ? 'Comparte este código para que tus amigos se unan.'
-                : 'Código inactivo: la salida fue cancelada.',
+            !activo
+                ? 'Código inactivo: la salida fue cancelada.'
+                : textoCompartido != null
+                ? 'Comparte el código o el resumen del plan con tu grupo.'
+                : 'Comparte este código para que tus amigos se unan.',
             style: textos.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
         ],

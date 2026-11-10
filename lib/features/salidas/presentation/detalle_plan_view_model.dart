@@ -14,6 +14,7 @@ import '../../votacion/data/votacion_repository.dart';
 import '../data/participante_model.dart';
 import '../data/plan_model.dart';
 import '../data/salidas_repository.dart';
+import 'resumen_compartido.dart';
 
 class DetallePlanViewModel extends ChangeNotifier {
   DetallePlanViewModel(
@@ -112,6 +113,25 @@ class DetallePlanViewModel extends ChangeNotifier {
   // actividades en orden de ejecucion; existen desde el cierre de la votacion
   List<ActividadModel> get actividades => _actividades;
   EstimacionPresupuesto? get estimacion => _estimacion;
+
+  bool get confirmado => _salida?.plan.estado == EstadoPlan.confirmado;
+
+  // inicio de la salida: hora de la primera actividad del itinerario confirmado
+  DateTime? get inicioSalida {
+    if (!confirmado || _actividades.isEmpty) return null;
+    return _actividades.first.inicio;
+  }
+
+  // resumen para la hoja de compartir; solo existe con el plan confirmado (rf09)
+  String? get textoCompartido {
+    final salida = _salida;
+    if (salida == null || !confirmado) return null;
+    return textoResumenCompartido(
+      plan: salida.plan,
+      actividades: _actividades,
+      estimacion: _estimacion,
+    );
+  }
 
   // solo administradores ordenan y asignan horarios antes de confirmar (rf12, p08)
   bool get puedeRevisarItinerario =>

@@ -6,7 +6,7 @@ import '../../../../core/utils/formato.dart';
 import '../../../lugares/presentation/widgets/estilo_lugar.dart';
 import '../../data/actividad_model.dart';
 
-// posicion, lugar, hora de la actividad, horario de atencion y precio (rf09, rf12)
+// posicion, lugar, hora de la actividad, direccion, horario de atencion y precio (rf09, rf12)
 class DatosActividad extends StatelessWidget {
   const DatosActividad({
     super.key,
@@ -70,6 +70,12 @@ class DatosActividad extends StatelessWidget {
                   texto: 'Sin fecha/hora',
                   color: AppColors.tertiary,
                 ),
+              _Linea(
+                icono: Icons.place_outlined,
+                texto: actividad.direccion == null
+                    ? 'Dirección desconocida'
+                    : 'Dirección: ${actividad.direccion}',
+              ),
               _Linea(
                 icono: Icons.storefront_outlined,
                 texto:

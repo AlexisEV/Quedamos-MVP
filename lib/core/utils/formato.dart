@@ -39,3 +39,36 @@ String formatearFechaHoraLima(DateTime instante) {
   return '${_dias[lima.weekday - 1]} ${lima.day} ${_meses[lima.month - 1]} '
       '${lima.year}, $hora:$minuto';
 }
+
+const _diasLargos = [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+  'Domingo',
+];
+const _mesesLargos = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+// ejemplo: sabado 14 de noviembre 2026, 16:00 (hora de lima)
+String formatearFechaLargaLima(DateTime instante) {
+  final lima = aHoraLima(instante);
+  final hora = lima.hour.toString().padLeft(2, '0');
+  final minuto = lima.minute.toString().padLeft(2, '0');
+  return '${_diasLargos[lima.weekday - 1]} ${lima.day} de '
+      '${_mesesLargos[lima.month - 1]} ${lima.year}, $hora:$minuto';
+}
