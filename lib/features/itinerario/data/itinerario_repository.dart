@@ -82,6 +82,7 @@ class ItinerarioRepository {
         'reemplazar_actividad',
         params: {'p_actividad_id': actividadId, 'p_lugar_id': lugarId},
       );
+      _salidas.avisarCambioDeAvisos();
       return ActividadModel.fromJson(fila as Map<String, dynamic>);
     } catch (error) {
       throw traducirError(error);
@@ -101,6 +102,7 @@ class ItinerarioRepository {
           'p_inicio': inicio.toUtc().toIso8601String(),
         },
       );
+      _salidas.avisarCambioDeAvisos();
       return ActividadModel.fromJson(fila as Map<String, dynamic>);
     } catch (error) {
       throw traducirError(error);

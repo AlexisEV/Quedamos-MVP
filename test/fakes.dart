@@ -10,6 +10,9 @@ import 'package:app/features/lugares/data/lugar_model.dart';
 import 'package:app/features/lugares/data/lugares_repository.dart';
 import 'package:app/features/lugares/data/propuesta_model.dart';
 import 'package:app/features/lugares/data/propuestas_repository.dart';
+import 'package:app/features/notificaciones/data/avisos_locales.dart';
+import 'package:app/features/notificaciones/data/notificacion_model.dart';
+import 'package:app/features/notificaciones/data/notificaciones_repository.dart';
 import 'package:app/features/perfil/data/perfil_model.dart';
 import 'package:app/features/perfil/data/perfil_repository.dart';
 import 'package:app/features/salidas/data/participante_model.dart';
@@ -130,6 +133,18 @@ class FakeSalidasRepository implements SalidasRepository {
 
   @override
   void avisarCambio() => _cambios.add(null);
+
+  final _cambiosDeAvisos = StreamController<void>.broadcast();
+  var avisosDeCambio = 0;
+
+  @override
+  Stream<void> get cambiosDeAvisos => _cambiosDeAvisos.stream;
+
+  @override
+  void avisarCambioDeAvisos() {
+    avisosDeCambio++;
+    _cambiosDeAvisos.add(null);
+  }
 
   @override
   Future<List<SalidaModel>> obtenerMisSalidas() async {
@@ -935,4 +950,84 @@ class FakeItinerarioRepository implements ItinerarioRepository {
   @override
   Future<List<CambioPlanModel>> obtenerCambios(String planId) async =>
       List.of(cambiosPorPlan[planId] ?? const []);
+}
+
+// notificaciones propias en memoria; marcar registra ids y marcas
+class FakeNotificacionesRepository implements NotificacionesRepository {
+  List<NotificacionModel> filas = [];
+  AppException? error;
+  AppException? errorMarcar;
+  var lecturas = 0;
+  final marcadasEntregadas = <String>[];
+  final marcadasLeidas = <String>[];
+
+  @override
+  Future<List<NotificacionModel>> obtenerNotificaciones() async {
+    lecturas++;
+    final falla = error;
+    if (falla != null) throw falla;
+    return List.of(filas);
+  }
+
+  @override
+  Future<void> marcar(
+    List<String> ids, {
+    bool entregada = false,
+    bool leida = false,
+  }) async {
+    final falla = errorMarcar;
+    if (falla != null) throw falla;
+    if (entregada) marcadasEntregadas.addAll(ids);
+    if (leida) marcadasLeidas.addAll(ids);
+  }
+}
+
+// avisos locales en memoria: guarda lo programado, mostrado y cancelado
+class FakeAvisosLocales implements AvisosLocales {
+  bool permiso = true;
+  bool concederAlPedir = true;
+  var pedidos = 0;
+  final programados = <int, DateTime>{};
+  final mostrados = <int>[];
+  final cancelados = <int>[];
+  var cancelarTodoLlamadas = 0;
+
+  @override
+  Future<void> inicializar(void Function(String? payload) alTocar) async {}
+
+  @override
+  Future<String?> payloadDeArranque() async => null;
+
+  @override
+  Future<bool> permisoConcedido() async => permiso;
+
+  @override
+  Future<bool> pedirPermiso() async {
+    pedidos++;
+    permiso = concederAlPedir;
+    return permiso;
+  }
+
+  @override
+  Future<void> programar({
+    required int id,
+    required String titulo,
+    required String cuerpo,
+    required DateTime momento,
+    required String payload,
+  }) async => programados[id] = momento;
+
+  @override
+  Future<void> mostrar({
+    required int id,
+    required String titulo,
+    required String cuerpo,
+    required String payload,
+  }) async => mostrados.add(id);
+
+  @override
+  Future<void> cancelar(int id) async => cancelados.add(id);
+
+  @override
+  Future<void> cancelarTodo() async => cancelarTodoLlamadas++;
 }

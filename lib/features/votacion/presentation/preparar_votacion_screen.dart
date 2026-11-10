@@ -374,7 +374,8 @@ class _SeccionPlazo extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'El plazo es informativo: la votación solo se cierra de forma manual.',
+          'El plazo es informativo: la votación solo se cierra de forma manual. '
+          'Quien aún no vote recibirá un aviso 1 hora antes del plazo.',
           style: textos.bodySmall?.copyWith(color: AppColors.textSecondary),
         ),
         if (vm.errorPlazo != null) ...[

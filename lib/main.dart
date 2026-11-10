@@ -6,6 +6,8 @@ import 'features/auth/data/auth_repository.dart';
 import 'features/itinerario/data/itinerario_repository.dart';
 import 'features/lugares/data/lugares_repository.dart';
 import 'features/lugares/data/propuestas_repository.dart';
+import 'features/notificaciones/data/avisos_locales.dart';
+import 'features/notificaciones/data/notificaciones_repository.dart';
 import 'features/perfil/data/perfil_repository.dart';
 import 'features/salidas/data/salidas_repository.dart';
 import 'features/votacion/data/votacion_repository.dart';
@@ -24,6 +26,8 @@ Future<void> main() async {
       propuestasRepository: PropuestasRepository(cliente),
       votacionRepository: VotacionRepository(cliente, salidas),
       itinerarioRepository: ItinerarioRepository(cliente, salidas),
+      notificacionesRepository: NotificacionesRepository(cliente),
+      avisosLocales: AvisosLocalesPlugin(),
     ),
   );
 }

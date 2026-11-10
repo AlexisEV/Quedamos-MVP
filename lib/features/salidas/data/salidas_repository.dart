@@ -45,6 +45,7 @@ class SalidasRepository {
 
   final SupabaseClient _cliente;
   final _cambios = StreamController<void>.broadcast();
+  final _cambiosDeAvisos = StreamController<void>.broadcast();
 
   static const _columnas = 'rol, es_creador, planes(*, participaciones(count))';
 
@@ -52,7 +53,15 @@ class SalidasRepository {
   Stream<void> get cambios => _cambios.stream;
 
   // otros repositorios avisan cuando una rpc cambia la fase de un plan
-  void avisarCambio() => _cambios.add(null);
+  void avisarCambio() {
+    _cambios.add(null);
+    _cambiosDeAvisos.add(null);
+  }
+
+  // una accion propia cambio los avisos del servidor; el dispositivo se sincroniza
+  Stream<void> get cambiosDeAvisos => _cambiosDeAvisos.stream;
+
+  void avisarCambioDeAvisos() => _cambiosDeAvisos.add(null);
 
   // id del usuario con sesion, para marcar su fila en la lista del grupo
   String? get usuarioActualId => _cliente.auth.currentUser?.id;
@@ -128,7 +137,7 @@ class SalidasRepository {
       final resultado = ResultadoUnion.fromJson(
         respuesta as Map<String, dynamic>,
       );
-      if (!resultado.yaParticipaba) _cambios.add(null);
+      if (!resultado.yaParticipaba) avisarCambio();
       return resultado;
     } catch (error) {
       throw traducirError(error);
@@ -162,6 +171,8 @@ class SalidasRepository {
         'responder_asistencia',
         params: {'p_plan_id': planId, 'p_estado': estado.valor},
       );
+      // anula o restituye los avisos propios en el dispositivo al instante
+      avisarCambioDeAvisos();
     } catch (error) {
       throw traducirError(error);
     }

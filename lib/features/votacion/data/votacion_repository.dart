@@ -84,6 +84,7 @@ class VotacionRepository {
               .toIso8601String(),
         },
       );
+      _salidas.avisarCambioDeAvisos();
       return PlanModel.fromJson(fila as Map<String, dynamic>);
     } catch (error) {
       throw traducirError(error);
@@ -146,6 +147,8 @@ class VotacionRepository {
         'guardar_votos',
         params: {'p_plan_id': planId, 'p_candidato_ids': candidatoIds.toList()},
       );
+      // el aviso de voto propio se cancela al instante en el dispositivo
+      _salidas.avisarCambioDeAvisos();
     } catch (error) {
       throw traducirError(error);
     }
