@@ -13,7 +13,6 @@ class BloquePresupuesto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textos = Theme.of(context).textTheme;
     final e = estimacion;
     final colorTotal = e.excede ? AppColors.budgetExceeded : AppColors.primary;
     final sinPrecio = e.sinPrecio == 1
@@ -53,11 +52,6 @@ class BloquePresupuesto extends StatelessWidget {
             color: colorTotal,
             backgroundColor: AppColors.surfaceContainerHigh,
           ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          'Solo actividades; el transporte va aparte.',
-          style: textos.bodySmall?.copyWith(color: AppColors.textSecondary),
         ),
         if (e.incompleta) ...[
           const SizedBox(height: AppSpacing.gutterSm),
