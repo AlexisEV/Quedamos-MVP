@@ -15,14 +15,21 @@ class NotificacionesViewModel extends ChangeNotifier {
     this._avisos, {
     Stream<void>? cambios,
     DateTime Function()? reloj,
-  }) : _reloj = reloj ?? DateTime.now {
+    Timer Function(Duration espera, void Function() alVencer)? temporizador,
+  }) : _reloj = reloj ?? DateTime.now,
+       _temporizador = temporizador ?? Timer.new {
     _suscripcion = cambios?.listen((_) => sincronizar());
   }
+
+  // margen para que el aviso ya cuente como vencido al refrescar
+  static const _margenRefresco = Duration(seconds: 1);
 
   final NotificacionesRepository _repositorio;
   final AvisosLocales _avisos;
   final DateTime Function() _reloj;
+  final Timer Function(Duration, void Function()) _temporizador;
   StreamSubscription<void>? _suscripcion;
+  Timer? _refresco;
 
   List<NotificacionModel> _todas = const [];
   bool _cargando = false;
@@ -122,12 +129,39 @@ class NotificacionesViewModel extends ChangeNotifier {
       _cargado = true;
       await _consultarPermiso();
       await _aplicarEnDispositivo(filas);
+      _programarRefresco();
     } on AppException catch (e) {
       _error = e.mensaje;
     } finally {
       _cargando = false;
       if (_activo) notifyListeners();
     }
+  }
+
+  // con la app abierta, refresca historial e insignia cuando vence el
+  // siguiente aviso activo, sin esperar a volver a la app ni a deslizar
+  void _programarRefresco() {
+    _refresco?.cancel();
+    _refresco = null;
+    if (!_activo) return;
+    final ahora = _reloj();
+    DateTime? siguiente;
+    for (final n in _todas) {
+      if (!n.activa || !n.programadaPara.isAfter(ahora)) continue;
+      if (siguiente == null || n.programadaPara.isBefore(siguiente)) {
+        siguiente = n.programadaPara;
+      }
+    }
+    if (siguiente == null) return;
+    _refresco = _temporizador(
+      siguiente.difference(ahora) + _margenRefresco,
+      () {
+        _refresco = null;
+        if (!_activo) return;
+        notifyListeners();
+        _programarRefresco();
+      },
+    );
   }
 
   // programa los recordatorios futuros, cancela los anulados y muestra los
@@ -231,6 +265,8 @@ class NotificacionesViewModel extends ChangeNotifier {
   // al cerrar sesion: sin avisos de la cuenta anterior en el dispositivo
   Future<void> limpiar() async {
     _activo = false;
+    _refresco?.cancel();
+    _refresco = null;
     _todas = const [];
     _cargado = false;
     _error = null;
@@ -248,6 +284,7 @@ class NotificacionesViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _suscripcion?.cancel();
+    _refresco?.cancel();
     super.dispose();
   }
 }

@@ -42,17 +42,51 @@ NotificacionModel _aviso(
   );
 }
 
+// temporizador manual: registra la espera y vence solo cuando el test lo pide
+class _TemporizadorFalso implements Timer {
+  _TemporizadorFalso(this.espera, this._alVencer);
+
+  final Duration espera;
+  final void Function() _alVencer;
+  bool _activo = true;
+
+  void vencer() {
+    if (!_activo) return;
+    _activo = false;
+    _alVencer();
+  }
+
+  @override
+  void cancel() => _activo = false;
+
+  @override
+  bool get isActive => _activo;
+
+  @override
+  int get tick => 0;
+}
+
 class _Escenario {
   final repositorio = FakeNotificacionesRepository();
   final avisos = FakeAvisosLocales();
   final cambios = StreamController<void>.broadcast();
+  final temporizadores = <_TemporizadorFalso>[];
+  DateTime ahora = _ahora;
 
   late final vm = NotificacionesViewModel(
     repositorio,
     avisos,
     cambios: cambios.stream,
-    reloj: () => _ahora,
+    reloj: () => ahora,
+    temporizador: (espera, alVencer) {
+      final t = _TemporizadorFalso(espera, alVencer);
+      temporizadores.add(t);
+      return t;
+    },
   );
+
+  _TemporizadorFalso? get refrescoActivo =>
+      temporizadores.where((t) => t.isActive).firstOrNull;
 }
 
 Widget _pantalla(NotificacionesViewModel vm, {List<String>? visitas}) {
@@ -227,6 +261,65 @@ void main() {
       await pumpEventQueue();
       expect(e.repositorio.lecturas, 1);
     });
+
+    test(
+      'con la app abierta el historial se refresca al vencer un aviso',
+      () async {
+        final e = _Escenario();
+        e.repositorio.filas = [
+          _aviso('pasado'),
+          _aviso('pronto', idLocal: 2, desfase: const Duration(minutes: 30)),
+          _aviso('tarde', idLocal: 3, desfase: const Duration(hours: 2)),
+          _aviso(
+            'anulado',
+            idLocal: 4,
+            desfase: const Duration(minutes: 10),
+            activa: false,
+          ),
+        ];
+        await e.vm.sincronizar();
+        expect(e.vm.noLeidas, 1);
+
+        // espera hasta el aviso activo mas cercano, no hasta el anulado
+        final primero = e.refrescoActivo!;
+        expect(primero.espera, const Duration(minutes: 30, seconds: 1));
+
+        var avisosAlOyente = 0;
+        e.vm.addListener(() => avisosAlOyente++);
+        e.ahora = _ahora.add(const Duration(minutes: 30, seconds: 1));
+        primero.vencer();
+
+        expect(avisosAlOyente, 1);
+        expect(e.vm.noLeidas, 2);
+        expect(e.vm.historial.first.id, 'pronto');
+        // queda programado el siguiente
+        expect(e.refrescoActivo!.espera, const Duration(hours: 1, minutes: 30));
+      },
+    );
+
+    test(
+      'sin avisos futuros no programa refresco y cerrar sesion lo cancela',
+      () async {
+        final e = _Escenario();
+        e.repositorio.filas = [_aviso('pasado')];
+        await e.vm.sincronizar();
+        expect(e.refrescoActivo, isNull);
+
+        e.repositorio.filas = [
+          _aviso('futuro', desfase: const Duration(hours: 1)),
+        ];
+        await e.vm.sincronizar();
+        final refresco = e.refrescoActivo!;
+
+        // una nueva sincronizacion reemplaza el refresco anterior
+        await e.vm.sincronizar();
+        expect(refresco.isActive, isFalse);
+        expect(e.temporizadores.where((t) => t.isActive).length, 1);
+
+        await e.vm.limpiar();
+        expect(e.refrescoActivo, isNull);
+      },
+    );
 
     test('error al leer conserva el mensaje', () async {
       final e = _Escenario();
