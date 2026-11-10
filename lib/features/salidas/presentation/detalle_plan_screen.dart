@@ -14,6 +14,7 @@ import '../../votacion/data/votacion_repository.dart';
 import '../data/salidas_repository.dart';
 import 'detalle_plan_view_model.dart';
 import 'widgets/cabecera_plan.dart';
+import 'widgets/tarjeta_asistencia.dart';
 import 'widgets/tarjeta_candidatos.dart';
 import 'widgets/tarjeta_itinerario.dart';
 import 'widgets/tarjeta_propuestas.dart';
@@ -69,9 +70,11 @@ class _DetalleVista extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             // confirmado: el resultado de la votacion y los limites ya no se muestran
-            if (vm.confirmado)
-              const TarjetaItinerario()
-            else if (vm.votacionCerrada) ...[
+            if (vm.confirmado) ...[
+              const TarjetaAsistencia(),
+              const SizedBox(height: AppSpacing.md),
+              const TarjetaItinerario(),
+            ] else if (vm.votacionCerrada) ...[
               const TarjetaItinerario(),
               const SizedBox(height: AppSpacing.md),
               const TarjetaResultado(),

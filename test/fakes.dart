@@ -114,6 +114,8 @@ class FakeSalidasRepository implements SalidasRepository {
   final participantesPorPlan = <String, List<ParticipanteModel>>{};
   final nombrados = <String>[];
   AppException? errorNombrar;
+  final respuestas = <EstadoAsistencia>[];
+  AppException? errorAsistencia;
 
   @override
   String? usuarioActualId = 'u1';
@@ -217,7 +219,29 @@ class FakeSalidasRepository implements SalidasRepository {
       rol: RolPlan.administrador,
       esCreador: actual.esCreador,
       unidoEn: actual.unidoEn,
+      asistencia: actual.asistencia,
     );
+  }
+
+  // misma regla que la rpc: solo confirmado y nunca pendiente
+  @override
+  Future<void> responderAsistencia({
+    required String planId,
+    required EstadoAsistencia estado,
+  }) async {
+    respuestas.add(estado);
+    final falla = errorAsistencia;
+    if (falla != null) throw falla;
+    if (estado == EstadoAsistencia.pendiente) {
+      throw const AppException(MensajesError.asistenciaInvalida);
+    }
+    final salida = await obtenerSalida(planId);
+    if (salida?.plan.estado != EstadoPlan.confirmado) {
+      throw const AppException(MensajesError.planNoConfirmado);
+    }
+    final lista = participantesPorPlan[planId] ?? [];
+    final indice = lista.indexWhere((p) => p.perfilId == usuarioActualId);
+    if (indice >= 0) lista[indice] = lista[indice].conAsistencia(estado);
   }
 }
 
@@ -226,6 +250,7 @@ ParticipanteModel participanteDePrueba(
   RolPlan rol = RolPlan.participante,
   bool esCreador = false,
   int minuto = 0,
+  EstadoAsistencia asistencia = EstadoAsistencia.pendiente,
 }) {
   return ParticipanteModel(
     perfilId: perfilId,
@@ -233,6 +258,7 @@ ParticipanteModel participanteDePrueba(
     rol: rol,
     esCreador: esCreador,
     unidoEn: DateTime.utc(2026, 10, 22, 12, minuto),
+    asistencia: asistencia,
   );
 }
 
@@ -490,6 +516,7 @@ class FakeVotacionRepository implements VotacionRepository {
     int? maxActividades,
     DateTime? fechaLimiteVoto,
     bool cambiarPlazo = false,
+    DateTime? fechaLimiteAsistencia,
   }) {
     return planDePrueba(
       id: plan.id,
@@ -500,7 +527,9 @@ class FakeVotacionRepository implements VotacionRepository {
       maxSelecciones: maxSelecciones ?? plan.maxSelecciones,
       maxActividades: maxActividades ?? plan.maxActividades,
       fechaLimiteVoto: cambiarPlazo ? fechaLimiteVoto : plan.fechaLimiteVoto,
-      fechaLimiteAsistencia: plan.fechaLimiteAsistencia,
+      fechaLimiteAsistencia: cambiarPlazo
+          ? fechaLimiteAsistencia
+          : plan.fechaLimiteAsistencia,
     );
   }
 
@@ -563,6 +592,7 @@ class FakeVotacionRepository implements VotacionRepository {
     final nuevo = _copiar(
       _plan(planId),
       fechaLimiteVoto: fechaLimiteVoto,
+      fechaLimiteAsistencia: fechaLimiteAsistencia,
       cambiarPlazo: true,
     );
     _reemplazar(nuevo);

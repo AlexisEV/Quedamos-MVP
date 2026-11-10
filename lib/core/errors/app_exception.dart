@@ -81,6 +81,9 @@ abstract final class MensajesError {
   static const sinActividades = 'El itinerario no tiene actividades.';
   static const actividadesSinHorario =
       'Asigna fecha y hora a todas las actividades antes de confirmar.';
+  static const asistenciaInvalida = 'Elige Asistiré o No asistiré.';
+  static const planNoConfirmado =
+      'La asistencia se responde cuando el itinerario está confirmado.';
 }
 
 // codigos que lanzan las rpc con raise exception; ver 04_DATABASE_SCHEMA.md seccion 6
@@ -121,6 +124,8 @@ const _mensajesRpc = {
   'fase_no_permite_confirmar': MensajesError.faseNoPermiteConfirmar,
   'sin_actividades': MensajesError.sinActividades,
   'actividades_sin_horario': MensajesError.actividadesSinHorario,
+  'asistencia_invalida': MensajesError.asistenciaInvalida,
+  'plan_no_confirmado': MensajesError.planNoConfirmado,
 };
 
 // traduce excepciones de supabase a mensajes en espanol

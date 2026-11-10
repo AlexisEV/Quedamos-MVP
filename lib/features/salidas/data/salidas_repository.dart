@@ -141,11 +141,27 @@ class SalidasRepository {
       final filas = await _cliente
           .from('participaciones')
           .select(
-            'perfil_id, rol, es_creador, unido_en, perfiles(nombre_visible)',
+            'perfil_id, rol, es_creador, unido_en, asistencia, '
+            'perfiles(nombre_visible)',
           )
           .eq('plan_id', planId);
       return filas.map(ParticipanteModel.fromJson).toList()
         ..sort(ParticipanteModel.comparar);
+    } catch (error) {
+      throw traducirError(error);
+    }
+  }
+
+  // asistire o no_asistire para toda la salida; el servidor rechaza pendiente (rf16)
+  Future<void> responderAsistencia({
+    required String planId,
+    required EstadoAsistencia estado,
+  }) async {
+    try {
+      await _cliente.rpc(
+        'responder_asistencia',
+        params: {'p_plan_id': planId, 'p_estado': estado.valor},
+      );
     } catch (error) {
       throw traducirError(error);
     }

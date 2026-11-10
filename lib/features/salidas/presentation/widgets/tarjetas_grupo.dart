@@ -5,11 +5,14 @@ import 'package:provider/provider.dart';
 import '../../../../app/router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/utils/formato.dart';
 import '../../../../core/widgets/mensaje_error.dart';
+import '../../../../core/widgets/selector_fecha_hora.dart';
 import '../../data/participante_model.dart';
 import '../detalle_plan_view_model.dart';
+import 'estilo_asistencia.dart';
 
-// p12 integrada en el detalle: lista del grupo con su rol
+// p12 integrada en el detalle: lista del grupo con su rol y, confirmado, su asistencia
 class TarjetaParticipantes extends StatelessWidget {
   const TarjetaParticipantes({super.key});
 
@@ -18,6 +21,7 @@ class TarjetaParticipantes extends StatelessWidget {
     final vm = context.watch<DetallePlanViewModel>();
     final textos = Theme.of(context).textTheme;
     final participantes = vm.participantes;
+    final conAsistencia = vm.confirmado;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -34,6 +38,10 @@ class TarjetaParticipantes extends StatelessWidget {
                 ),
               ],
             ),
+            if (conAsistencia && participantes.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.gutterSm),
+              const _ResumenAsistencia(),
+            ],
             const SizedBox(height: AppSpacing.sm),
             for (final participante in participantes)
               _FilaParticipante(
@@ -41,6 +49,7 @@ class TarjetaParticipantes extends StatelessWidget {
                 esUsuarioActual: participante.perfilId == vm.usuarioActualId,
                 propuestas: vm.propuestasDe(participante.perfilId),
                 maxPropuestas: vm.salida?.plan.maxPropuestasPorPersona ?? 0,
+                conAsistencia: conAsistencia,
               ),
           ],
         ),
@@ -55,12 +64,15 @@ class _FilaParticipante extends StatelessWidget {
     required this.esUsuarioActual,
     required this.propuestas,
     required this.maxPropuestas,
+    this.conAsistencia = false,
   });
 
   final ParticipanteModel participante;
   final bool esUsuarioActual;
   final int propuestas;
   final int maxPropuestas;
+  // con el plan confirmado la asistencia reemplaza al conteo de propuestas
+  final bool conAsistencia;
 
   @override
   Widget build(BuildContext context) {
@@ -99,11 +111,16 @@ class _FilaParticipante extends StatelessWidget {
               ],
             ),
           ),
-          // solo el conteo: proponer no es obligatorio, no hay pendientes
-          Text(
-            '$propuestas/$maxPropuestas propuestas',
-            style: textos.labelMedium?.copyWith(color: AppColors.textSecondary),
-          ),
+          if (conAsistencia)
+            ChipAsistencia(estado: participante.asistencia)
+          else
+            // solo el conteo: proponer no es obligatorio, no hay pendientes
+            Text(
+              '$propuestas/$maxPropuestas propuestas',
+              style: textos.labelMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
         ],
       ),
     );
@@ -178,8 +195,141 @@ class _InsigniaTu extends StatelessWidget {
 }
 
 // acciones de administrador: preparar la votacion (rf05, rf18) y nombrar administradores (rf17)
+// conteos del grupo y barra de tres tonos, como el mockup del detalle confirmado
+class _ResumenAsistencia extends StatelessWidget {
+  const _ResumenAsistencia();
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<DetallePlanViewModel>();
+    final textos = Theme.of(context).textTheme;
+    final asistiran = vm.conteoAsistencia(EstadoAsistencia.asistire);
+    final pendientes = vm.conteoAsistencia(EstadoAsistencia.pendiente);
+    final noAsistiran = vm.conteoAsistencia(EstadoAsistencia.noAsistire);
+    final partes = [
+      (
+        EstadoAsistencia.asistire,
+        asistiran,
+        asistiran == 1 ? '1 asistirá' : '$asistiran asistirán',
+      ),
+      (
+        EstadoAsistencia.pendiente,
+        pendientes,
+        pendientes == 1 ? '1 pendiente' : '$pendientes pendientes',
+      ),
+      (
+        EstadoAsistencia.noAsistire,
+        noAsistiran,
+        noAsistiran == 1 ? '1 no asistirá' : '$noAsistiran no asistirán',
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: AppSpacing.gutterSm,
+          runSpacing: AppSpacing.xs,
+          children: [
+            for (final (estado, _, texto) in partes)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: estado.colorBarra,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    texto,
+                    style: textos.labelMedium?.copyWith(color: estado.color),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.full),
+          child: SizedBox(
+            height: 8,
+            // stretch da alto a los segmentos, que no tienen hijo
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (estado, cantidad, _) in partes)
+                  if (cantidad > 0)
+                    Expanded(
+                      flex: cantidad,
+                      child: ColoredBox(color: estado.colorBarra),
+                    ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class TarjetaGestionAdmin extends StatelessWidget {
   const TarjetaGestionAdmin({super.key});
+
+  // fija o quita el plazo de asistencia; no bloquea respuestas (rf16)
+  Future<void> _plazoAsistencia(BuildContext context) async {
+    final vm = context.read<DetallePlanViewModel>();
+    final mensajes = ScaffoldMessenger.of(context);
+    final actual = vm.plazoAsistencia;
+    var quitar = false;
+    if (actual != null) {
+      final opcion = await showModalBottomSheet<String>(
+        context: context,
+        useRootNavigator: true,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit_calendar_outlined),
+                title: const Text('Cambiar fecha y hora'),
+                onTap: () => Navigator.of(context).pop('cambiar'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.timer_off_outlined),
+                title: const Text('Quitar plazo'),
+                onTap: () => Navigator.of(context).pop('quitar'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (opcion == null || !context.mounted) return;
+      quitar = opcion == 'quitar';
+    }
+    DateTime? plazo;
+    if (!quitar) {
+      plazo = await elegirFechaHoraLima(
+        context,
+        actual: actual,
+        tituloFecha: 'Fecha límite de asistencia',
+        tituloHora: 'Hora límite (hora de Lima)',
+      );
+      if (plazo == null) return;
+    }
+    if (await vm.definirPlazoAsistencia(plazo)) {
+      mensajes.showSnackBar(
+        SnackBar(
+          content: Text(
+            quitar ? 'Plazo quitado.' : 'Plazo de asistencia guardado.',
+          ),
+        ),
+      );
+    }
+  }
 
   Future<void> _nombrar(BuildContext context) async {
     final vm = context.read<DetallePlanViewModel>();
@@ -357,6 +507,32 @@ class TarjetaGestionAdmin extends StatelessWidget {
                 ),
               ),
             ],
+            if (vm.puedeDefinirPlazoAsistencia) ...[
+              const SizedBox(height: AppSpacing.gutterSm),
+              Material(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ListTile(
+                  shape: forma,
+                  enabled: !vm.guardandoPlazo,
+                  leading: vm.guardandoPlazo
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.timer_outlined),
+                  title: const Text('Plazo de asistencia'),
+                  subtitle: Text(_textoPlazo(vm)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _plazoAsistencia(context),
+                ),
+              ),
+              if (vm.errorPlazo != null) ...[
+                const SizedBox(height: AppSpacing.gutterSm),
+                MensajeError(mensaje: vm.errorPlazo!),
+              ],
+            ],
             const SizedBox(height: AppSpacing.gutterSm),
             Material(
               color: AppColors.surfaceContainerLow,
@@ -388,6 +564,13 @@ class TarjetaGestionAdmin extends StatelessWidget {
       ),
     );
   }
+}
+
+String _textoPlazo(DetallePlanViewModel vm) {
+  final plazo = vm.plazoAsistencia;
+  if (plazo == null) return 'Sin plazo · opcional, no bloquea respuestas';
+  final fecha = formatearFechaHoraLima(plazo);
+  return vm.plazoAsistenciaVencido ? 'Vencido: $fecha' : 'Hasta $fecha';
 }
 
 class _HojaNombrables extends StatelessWidget {

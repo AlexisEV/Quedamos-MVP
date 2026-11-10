@@ -1,6 +1,24 @@
 import 'plan_model.dart';
 
-// integrante del plan con su rol; nunca incluye datos de votos
+// asistencia para toda la salida; pendiente es solo el valor inicial (rf16)
+enum EstadoAsistencia {
+  pendiente('pendiente', 'Pendiente'),
+  asistire('asistire', 'Asistirá'),
+  noAsistire('no_asistire', 'No asistirá');
+
+  const EstadoAsistencia(this.valor, this.etiqueta);
+
+  final String valor;
+  // etiqueta en tercera persona para la lista del grupo
+  final String etiqueta;
+
+  static EstadoAsistencia desdeValor(String? valor) => values.firstWhere(
+    (e) => e.valor == valor,
+    orElse: () => EstadoAsistencia.pendiente,
+  );
+}
+
+// integrante del plan con su rol y asistencia; nunca incluye datos de votos
 class ParticipanteModel {
   const ParticipanteModel({
     required this.perfilId,
@@ -8,6 +26,7 @@ class ParticipanteModel {
     required this.rol,
     required this.esCreador,
     required this.unidoEn,
+    this.asistencia = EstadoAsistencia.pendiente,
   });
 
   // fila de participaciones con el perfil embebido
@@ -19,6 +38,7 @@ class ParticipanteModel {
       rol: RolPlan.desdeValor(json['rol'] as String),
       esCreador: json['es_creador'] as bool,
       unidoEn: DateTime.parse(json['unido_en'] as String),
+      asistencia: EstadoAsistencia.desdeValor(json['asistencia'] as String?),
     );
   }
 
@@ -27,8 +47,19 @@ class ParticipanteModel {
   final RolPlan rol;
   final bool esCreador;
   final DateTime unidoEn;
+  final EstadoAsistencia asistencia;
 
   bool get esAdministrador => rol == RolPlan.administrador;
+
+  // copia con la respuesta ya confirmada por el servidor
+  ParticipanteModel conAsistencia(EstadoAsistencia estado) => ParticipanteModel(
+    perfilId: perfilId,
+    nombreVisible: nombreVisible,
+    rol: rol,
+    esCreador: esCreador,
+    unidoEn: unidoEn,
+    asistencia: estado,
+  );
 
   String get etiquetaRol =>
       esCreador ? 'Creador · ${RolPlan.administrador.etiqueta}' : rol.etiqueta;

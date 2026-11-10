@@ -57,6 +57,11 @@ class DetallePlanViewModel extends ChangeNotifier {
   String? _errorEmpate;
   List<ActividadModel> _actividades = const [];
   EstimacionPresupuesto? _estimacion;
+  // respuesta en guardado; null cuando no hay guardado en curso
+  EstadoAsistencia? _respondiendo;
+  String? _errorAsistencia;
+  bool _guardandoPlazo = false;
+  String? _errorPlazo;
   bool _desechado = false;
 
   SalidaModel? get salida => _salida;
@@ -132,6 +137,39 @@ class DetallePlanViewModel extends ChangeNotifier {
       estimacion: _estimacion,
     );
   }
+
+  // asistencia para toda la salida, solo con el itinerario confirmado (rf16)
+  bool get puedeResponderAsistencia => confirmado;
+  EstadoAsistencia? get respondiendo => _respondiendo;
+  String? get errorAsistencia => _errorAsistencia;
+  bool get guardandoPlazo => _guardandoPlazo;
+  String? get errorPlazo => _errorPlazo;
+
+  ParticipanteModel? get miParticipacion {
+    final yo = usuarioActualId;
+    for (final p in _participantes) {
+      if (p.perfilId == yo) return p;
+    }
+    return null;
+  }
+
+  EstadoAsistencia get miAsistencia =>
+      miParticipacion?.asistencia ?? EstadoAsistencia.pendiente;
+
+  int conteoAsistencia(EstadoAsistencia estado) =>
+      _participantes.where((p) => p.asistencia == estado).length;
+
+  DateTime? get plazoAsistencia => _salida?.plan.fechaLimiteAsistencia;
+
+  // el plazo vencido no bloquea la respuesta; solo se indica (rf16)
+  bool get plazoAsistenciaVencido {
+    final plazo = plazoAsistencia;
+    return plazo != null && !plazo.isAfter(DateTime.now());
+  }
+
+  // solo administradores fijan o quitan el plazo, con el plan confirmado
+  bool get puedeDefinirPlazoAsistencia =>
+      confirmado && (_salida?.esAdministrador ?? false);
 
   // solo administradores ordenan y asignan horarios antes de confirmar (rf12, p08)
   bool get puedeRevisarItinerario =>
@@ -243,6 +281,65 @@ class DetallePlanViewModel extends ChangeNotifier {
     _asignando = false;
     _notificar();
     return true;
+  }
+
+  // true solo cuando el servidor guardo la respuesta; si falla se conserva la anterior
+  Future<bool> responderAsistencia(EstadoAsistencia estado) async {
+    if (_respondiendo != null ||
+        !puedeResponderAsistencia ||
+        estado == EstadoAsistencia.pendiente) {
+      return false;
+    }
+    _respondiendo = estado;
+    _errorAsistencia = null;
+    _notificar();
+    try {
+      await _repositorio.responderAsistencia(planId: planId, estado: estado);
+    } catch (error) {
+      _errorAsistencia = _mensaje(error);
+      _respondiendo = null;
+      _notificar();
+      return false;
+    }
+    final yo = usuarioActualId;
+    _participantes = [
+      for (final p in _participantes)
+        p.perfilId == yo ? p.conAsistencia(estado) : p,
+    ];
+    _respondiendo = null;
+    _notificar();
+    return true;
+  }
+
+  // null quita el plazo; se reenvia el plazo de voto vigente porque la rpc reemplaza ambos
+  Future<bool> definirPlazoAsistencia(DateTime? plazo) async {
+    final salida = _salida;
+    if (_guardandoPlazo || salida == null || !puedeDefinirPlazoAsistencia) {
+      return false;
+    }
+    _guardandoPlazo = true;
+    _errorPlazo = null;
+    _notificar();
+    try {
+      final plan = await _votacion.definirPlazos(
+        planId: planId,
+        fechaLimiteVoto: salida.plan.fechaLimiteVoto,
+        fechaLimiteAsistencia: plazo,
+      );
+      _salida = SalidaModel(
+        plan: plan,
+        miRol: salida.miRol,
+        esCreador: salida.esCreador,
+        totalParticipantes: salida.totalParticipantes,
+      );
+      return true;
+    } catch (error) {
+      _errorPlazo = _mensaje(error);
+      return false;
+    } finally {
+      _guardandoPlazo = false;
+      _notificar();
+    }
   }
 
   // true solo cuando el servidor confirmo el cierre; un rechazo deja la votacion abierta
