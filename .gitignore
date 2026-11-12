@@ -1,9 +1,8 @@
 # ---------------------------------------------------------------
-# memoria local de agentes y documentacion interna (no se versiona)
+# agents.md y docs/ se versionan como memoria compartida de los agentes;
+# la guia de presentacion queda local porque el repositorio es publico
 # ---------------------------------------------------------------
-/AGENTS.md
-/docs/
-/Docs/
+/docs/07_PRESENTACION.md
 
 # ---------------------------------------------------------------
 # credenciales y variables de entorno (nunca se versionan)
